@@ -1,0 +1,76 @@
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { Role } from '@prisma/client';
+
+interface JwtPayload {
+  userId: string;
+  email: string;
+  role: Role;
+}
+
+// Extend Express Request type
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JwtPayload;
+    }
+  }
+}
+
+// Middleware xác thực JWT
+export const authenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'No token provided' });
+      return;
+    }
+
+    const token = authHeader.substring(7);
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+
+    const decoded = jwt.verify(token, secret) as JwtPayload;
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Middleware kiểm tra vai trò
+export const authorize = (...roles: Role[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+      return;
+    }
+
+    next();
+  };
+};
+
+// Middleware kiểm tra tài khoản active
+export const checkAccountStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // TODO: Implement check account status from database
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+

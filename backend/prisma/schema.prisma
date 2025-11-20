@@ -1,0 +1,204 @@
+// Prisma Schema cho VolunteerHub
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum cho vai trò người dùng
+enum Role {
+  VOLUNTEER      // Tình nguyện viên
+  EVENT_MANAGER  // Quản lý sự kiện
+  ADMIN          // Admin
+}
+
+// Enum cho trạng thái tài khoản
+enum AccountStatus {
+  ACTIVE
+  LOCKED
+  PENDING
+}
+
+// Enum cho trạng thái sự kiện
+enum EventStatus {
+  PENDING    // Chờ duyệt
+  APPROVED   // Đã duyệt
+  REJECTED   // Bị từ chối
+  COMPLETED  // Đã hoàn thành
+  CANCELLED  // Đã hủy
+}
+
+// Enum cho trạng thái đăng ký
+enum RegistrationStatus {
+  PENDING    // Chờ duyệt
+  APPROVED   // Đã duyệt
+  REJECTED   // Bị từ chối
+  CANCELLED  // Đã hủy
+  COMPLETED  // Đã hoàn thành
+}
+
+// Enum cho danh mục sự kiện
+enum EventCategory {
+  TREE_PLANTING      // Trồng cây
+  CLEANING           // Dọn rác
+  CHARITY            // Từ thiện
+  DIGITAL_LITERACY   // Bình dân học vụ số
+  EDUCATION          // Giáo dục
+  HEALTHCARE         // Y tế
+  COMMUNITY          // Cộng đồng
+  OTHER              // Khác
+}
+
+// Model User - Người dùng
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  fullName      String
+  phone         String?
+  avatar        String?
+  role          Role           @default(VOLUNTEER)
+  accountStatus AccountStatus  @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  managedEvents     Event[]        @relation("EventManager")
+  registrations     Registration[]
+  posts             Post[]
+  comments          Comment[]
+  likes             Like[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("users")
+}
+
+// Model Event - Sự kiện
+model Event {
+  id          String        @id @default(uuid())
+  title       String
+  description String        @db.Text
+  location    String
+  startDate   DateTime
+  endDate     DateTime
+  category    EventCategory
+  status      EventStatus   @default(PENDING)
+  maxParticipants Int?
+  imageUrl    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  managerId     String
+  manager       User           @relation("EventManager", fields: [managerId], references: [id])
+  registrations Registration[]
+  posts         Post[]
+
+  @@map("events")
+}
+
+// Model Registration - Đăng ký tham gia sự kiện
+model Registration {
+  id          String             @id @default(uuid())
+  status      RegistrationStatus @default(PENDING)
+  isCompleted Boolean            @default(false)
+  completedAt DateTime?
+  note        String?            @db.Text
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // Relations
+  userId  String
+  eventId String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@map("registrations")
+}
+
+// Model Post - Bài viết trên kênh trao đổi
+model Post {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  authorId String
+  eventId  String
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  event    Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  likes    Like[]
+
+  @@map("posts")
+}
+
+// Model Comment - Bình luận
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  authorId String
+  postId   String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+// Model Like - Lượt thích
+model Like {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId String
+  postId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("likes")
+}
+
+// Model Notification - Thông báo
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String   @db.Text
+  type      String   // 'registration', 'event', 'post', etc.
+  isRead    Boolean  @default(false)
+  data      Json?    // Dữ liệu bổ sung (eventId, postId, etc.)
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// Model PushSubscription - Đăng ký Web Push
+model PushSubscription {
+  id       String   @id @default(uuid())
+  endpoint String   @unique
+  keys     Json     // {p256dh, auth}
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+

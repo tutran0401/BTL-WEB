@@ -1,0 +1,290 @@
+import { Request, Response } from 'express';
+import prisma from '../config/database';
+
+// GET /api/events
+export const getAllEvents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { 
+      status, 
+      category, 
+      search, 
+      startDate, 
+      endDate,
+      page = '1', 
+      limit = '10' 
+    } = req.query;
+
+    const where: any = {};
+    
+    // Nếu không phải admin, chỉ show events đã approve
+    if (!req.user || req.user.role !== 'ADMIN') {
+      where.status = 'APPROVED';
+    } else if (status) {
+      where.status = status;
+    }
+    
+    if (category) where.category = category;
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { description: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+    if (startDate) {
+      where.startDate = { gte: new Date(startDate as string) };
+    }
+    if (endDate) {
+      where.endDate = { lte: new Date(endDate as string) };
+    }
+
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const take = parseInt(limit as string);
+
+    const [events, total] = await Promise.all([
+      prisma.event.findMany({
+        where,
+        include: {
+          manager: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true
+            }
+          },
+          _count: {
+            select: {
+              registrations: true,
+              posts: true
+            }
+          }
+        },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.event.count({ where })
+    ]);
+
+    res.json({
+      events,
+      pagination: {
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / take)
+      }
+    });
+  } catch (error) {
+    console.error('Get all events error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// GET /api/events/:id
+export const getEventById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
+        _count: {
+          select: {
+            registrations: true,
+            posts: true
+          }
+        }
+      }
+    });
+
+    if (!event) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    res.json(event);
+  } catch (error) {
+    console.error('Get event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// POST /api/events
+export const createEvent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const {
+      title,
+      description,
+      location,
+      startDate,
+      endDate,
+      category,
+      maxParticipants,
+      imageUrl
+    } = req.body;
+
+    const event = await prisma.event.create({
+      data: {
+        title,
+        description,
+        location,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        category,
+        maxParticipants,
+        imageUrl,
+        managerId: userId!,
+        status: 'PENDING'
+      },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.status(201).json({
+      message: 'Event created successfully. Waiting for admin approval.',
+      event
+    });
+  } catch (error) {
+    console.error('Create event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// PUT /api/events/:id
+export const updateEvent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+
+    // Check ownership
+    const event = await prisma.event.findUnique({
+      where: { id }
+    });
+
+    if (!event) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    if (event.managerId !== userId && userRole !== 'ADMIN') {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const updatedEvent = await prisma.event.update({
+      where: { id },
+      data: req.body,
+      include: {
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      message: 'Event updated successfully',
+      event: updatedEvent
+    });
+  } catch (error) {
+    console.error('Update event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// DELETE /api/events/:id
+export const deleteEvent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+
+    // Check ownership
+    const event = await prisma.event.findUnique({
+      where: { id }
+    });
+
+    if (!event) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    if (event.managerId !== userId && userRole !== 'ADMIN') {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    await prisma.event.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    console.error('Delete event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// PATCH /api/events/:id/approve
+export const approveEvent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const event = await prisma.event.update({
+      where: { id },
+      data: { status: 'APPROVED' }
+    });
+
+    // TODO: Send notification to event manager
+
+    res.json({
+      message: 'Event approved successfully',
+      event
+    });
+  } catch (error) {
+    console.error('Approve event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// PATCH /api/events/:id/reject
+export const rejectEvent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const event = await prisma.event.update({
+      where: { id },
+      data: { status: 'REJECTED' }
+    });
+
+    // TODO: Send notification to event manager
+
+    res.json({
+      message: 'Event rejected',
+      event
+    });
+  } catch (error) {
+    console.error('Reject event error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
