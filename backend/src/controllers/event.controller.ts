@@ -16,11 +16,17 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
 
     const where: any = {};
     
-    // Nếu không phải admin, chỉ show events đã approve
-    if (!req.user || req.user.role !== 'ADMIN') {
+    // Nếu user là admin và có filter status thì dùng filter đó
+    // Ngược lại, chỉ show events đã approve cho public
+    if (req.user?.role === 'ADMIN') {
+      // Admin có thể filter theo status bất kỳ
+      if (status) {
+        where.status = status;
+      }
+      // Nếu không có filter status, admin sẽ thấy tất cả
+    } else {
+      // Non-admin chỉ thấy events đã approve
       where.status = 'APPROVED';
-    } else if (status) {
-      where.status = status;
     }
     
     if (category) where.category = category;

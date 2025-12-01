@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import * as eventController from '../controllers/event.controller';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validation.middleware';
 import { createEventSchema, updateEventSchema } from '../validators/event.validator';
 import { Role } from '@prisma/client';
 
 const router = Router();
 
-// Public routes
-router.get('/', eventController.getAllEvents);
+// Public routes with optional authentication (để admin có thể filter theo status)
+router.get('/', optionalAuthenticate, eventController.getAllEvents);
 router.get('/:id', eventController.getEventById);
 
 // Authenticated routes

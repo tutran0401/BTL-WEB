@@ -4,6 +4,7 @@ import { eventService, Event } from '../../services/eventService';
 import { registrationService, Registration } from '../../services/registrationService';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
+import { PostList } from '../../components/social';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -309,6 +310,13 @@ export default function EventDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Social Features - Bảng tin sự kiện */}
+      {event.status === 'APPROVED' && (
+        <div className="mt-8">
+          <PostList eventId={event.id} />
+        </div>
+      )}
     </div>
   );
 }

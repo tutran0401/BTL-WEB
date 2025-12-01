@@ -74,3 +74,35 @@ export const checkAccountStatus = async (
   }
 };
 
+// Middleware xác thực tùy chọn (không bắt buộc, nhưng nếu có token thì validate)
+export const optionalAuthenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // Không có token, tiếp tục nhưng req.user = undefined
+      next();
+      return;
+    }
+
+    const token = authHeader.substring(7);
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+
+    try {
+      const decoded = jwt.verify(token, secret) as JwtPayload;
+      req.user = decoded;
+    } catch (error) {
+      // Token không hợp lệ, bỏ qua và tiếp tục
+      req.user = undefined;
+    }
+
+    next();
+  } catch (error) {
+    next(); // Có lỗi nhưng vẫn cho qua
+  }
+};
+
