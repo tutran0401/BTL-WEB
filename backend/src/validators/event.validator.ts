@@ -14,9 +14,9 @@ export const createEventSchema = Joi.object({
     'string.min': 'Location must be at least 5 characters long',
     'any.required': 'Location is required'
   }),
-  startDate: Joi.date().iso().greater('now').required().messages({
-    'date.greater': 'Start date must be in the future',
-    'any.required': 'Start date is required'
+  startDate: Joi.date().iso().required().messages({
+    'any.required': 'Start date is required',
+    'date.base': 'Start date must be a valid date'
   }),
   endDate: Joi.date().iso().greater(Joi.ref('startDate')).required().messages({
     'date.greater': 'End date must be after start date',
@@ -38,8 +38,8 @@ export const createEventSchema = Joi.object({
   maxParticipants: Joi.number().integer().min(1).optional().messages({
     'number.min': 'Max participants must be at least 1'
   }),
-  imageUrl: Joi.string().uri().optional().messages({
-    'string.uri': 'Image URL must be a valid URL'
+  imageUrl: Joi.string().allow('').optional().messages({
+    'string.base': 'Image URL must be a string'
   })
 });
 

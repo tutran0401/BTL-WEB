@@ -33,6 +33,22 @@ VolunteerHub là ứng dụng web toàn diện giúp:
 
 ## 🚀 Cài đặt và chạy dự án
 
+### 📚 Hướng dẫn setup (chọn 1 trong 3):
+
+| File | Mô tả | Dành cho |
+|------|-------|----------|
+| **[QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)** | ⚡ Checklist nhanh, súc tích | Người đã quen với setup dự án |
+| **[HUONG_DAN_CLONE_VA_CHAY.md](HUONG_DAN_CLONE_VA_CHAY.md)** | 📖 Hướng dẫn chi tiết từng bước | **Người mới, lần đầu setup** ⭐ |
+| **[SETUP_GUIDE.md](SETUP_GUIDE.md)** | 📋 Hướng dẫn tổng quan features | Xem overview dự án |
+
+**📝 Files hỗ trợ:**
+- [ENV_TEMPLATE.md](ENV_TEMPLATE.md) - Template và giải thích file .env
+- [HUONG_DAN_CONFIG_DEV.md](HUONG_DAN_CONFIG_DEV.md) - Cấu hình môi trường development
+
+---
+
+### ⚡ Quick Start (TL;DR)
+
 ### Yêu cầu hệ thống
 - Node.js >= 18.x
 - PostgreSQL >= 14.x
@@ -130,6 +146,16 @@ npm run preview
 ```
 
 Frontend sẽ chạy tại: `http://localhost:5173`
+
+## 🎓 Tài khoản test (sau khi seed data)
+
+| Role | Email | Password | Quyền |
+|------|-------|----------|-------|
+| 👑 **Admin** | admin@volunteerhub.com | 123456 | Quản trị toàn hệ thống |
+| 👨‍💼 **Manager** | manager1@volunteerhub.com | 123456 | Quản lý events |
+| 👤 **Volunteer** | volunteer1@volunteerhub.com | 123456 | Tham gia events |
+
+---
 
 ## 📁 Cấu trúc dự án
 
@@ -300,6 +326,8 @@ npm test
 
 ## 📝 Development Guidelines
 
+Xem chi tiết trong [HUONG_DAN_CONFIG_DEV.md](HUONG_DAN_CONFIG_DEV.md)
+
 ### Code Style
 - Sử dụng TypeScript cho type safety
 - Follow ESLint rules
@@ -308,7 +336,7 @@ npm test
 
 ### Git Workflow
 - Tạo branch mới cho mỗi feature
-- Commit messages rõ ràng
+- Commit messages rõ ràng: `feat:`, `fix:`, `docs:`, etc.
 - Review code trước khi merge
 
 ### API Design
@@ -316,6 +344,25 @@ npm test
 - Consistent error responses
 - Proper HTTP status codes
 - API versioning (nếu cần)
+
+---
+
+## 📚 Documentation
+
+| File | Mô tả |
+|------|-------|
+| [README.md](README.md) | Overview dự án (file này) |
+| [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md) | Checklist setup nhanh |
+| [HUONG_DAN_CLONE_VA_CHAY.md](HUONG_DAN_CLONE_VA_CHAY.md) | Hướng dẫn chi tiết clone & chạy |
+| [SETUP_GUIDE.md](SETUP_GUIDE.md) | Hướng dẫn setup tổng quan |
+| [HUONG_DAN_CONFIG_DEV.md](HUONG_DAN_CONFIG_DEV.md) | Cấu hình development |
+| [ENV_TEMPLATE.md](ENV_TEMPLATE.md) | Template file .env |
+| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Cấu trúc code |
+| [SUMMARY.md](SUMMARY.md) | Tổng quan features |
+| [TEST_CHECKLIST.md](TEST_CHECKLIST.md) | Checklist test |
+| [ADMIN_DASHBOARD.md](ADMIN_DASHBOARD.md) | Admin features |
+| [SOCIAL_FEATURES.md](SOCIAL_FEATURES.md) | Social features |
+| [ISSUES_AND_BUGS.md](ISSUES_AND_BUGS.md) | Known issues |
 
 ## 👥 Team Members
 

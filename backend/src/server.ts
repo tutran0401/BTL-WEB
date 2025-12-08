@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
+import path from 'path';
+
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +40,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -98,4 +103,3 @@ httpServer.listen(PORT, () => {
 
 export { io };
 export default app;
-

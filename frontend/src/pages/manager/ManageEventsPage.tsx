@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, MapPin, Users, Edit, Trash2, Check, X, Eye, CheckCircle } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, Edit, Trash2, Check, X, Eye, CheckCircle, Upload } from 'lucide-react';
 import { eventService, Event } from '../../services/eventService';
 import { registrationService, Registration } from '../../services/registrationService';
 import { Button, Card, Modal, Loading } from '../../components/common';
@@ -344,6 +344,8 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { token } = useAuthStore(); // ✅ LẤY TOKEN TỪ ZUSTAND STORE
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -355,6 +357,62 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
     imageUrl: '',
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 5MB');
+      return;
+    }
+
+    setUploading(true);
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', file);
+
+    try {
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để upload ảnh');
+        setUploading(false);
+        return;
+      }
+      
+      console.log('🔑 Token from Zustand:', token?.substring(0, 20) + '...');
+      console.log('📤 Uploading to:', `${import.meta.env.VITE_API_URL}/events/upload-image`);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/events/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: uploadFormData
+      });
+      
+      console.log('📨 Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setFormData(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      toast.success('Upload ảnh thành công!');
+    } catch (error) {
+      toast.error('Không thể upload ảnh');
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -471,32 +529,95 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Số người tối đa (tùy chọn)
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={formData.maxParticipants}
-              onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-              placeholder="50"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Số người tối đa (tùy chọn)
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={formData.maxParticipants}
+            onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            placeholder="50"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ảnh URL (tùy chọn)
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Ảnh sự kiện (tùy chọn)
+          </label>
+          
+          {/* Image Preview */}
+          {formData.imageUrl && (
+            <div className="mb-3 relative">
+              <img 
+                src={formData.imageUrl} 
+                alt="Preview" 
+                className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  toast.error('Không thể tải ảnh. Vui lòng kiểm tra URL.');
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition"
+                title="Xóa ảnh"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Upload or URL input */}
+          <div className="space-y-3">
+            {/* File Upload Button */}
+            <label className="block cursor-pointer">
+              <div className="px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 transition text-center bg-gray-50 hover:bg-gray-100">
+                {uploading ? (
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
+                    <span className="text-sm">Đang tải lên...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <Upload className="w-5 h-5" />
+                    <span className="text-sm font-medium">Chọn ảnh từ máy tính</span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  JPG, PNG, GIF, WebP - Tối đa 5MB
+                </p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="hidden"
+              />
             </label>
-            <input
-              type="url"
-              value={formData.imageUrl}
-              onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-              placeholder="https://..."
-            />
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-gray-300"></div>
+              <span className="text-sm text-gray-500">hoặc</span>
+              <div className="flex-1 border-t border-gray-300"></div>
+            </div>
+
+            {/* URL Input */}
+            <div>
+              <input
+                type="text"
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                placeholder="Nhập URL ảnh: https://..."
+              />
+            </div>
           </div>
         </div>
 

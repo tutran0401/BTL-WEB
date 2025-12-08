@@ -24,21 +24,30 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log('🔐 Auth middleware - checking token...');
     const authHeader = req.headers.authorization;
+    console.log('Auth header:', authHeader ? 'Present' : 'Missing');
+    console.log('Full auth header:', authHeader);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('❌ No token provided');
       res.status(401).json({ error: 'No token provided' });
       return;
     }
 
     const token = authHeader.substring(7);
+    console.log('Extracted token (first 30 chars):', token.substring(0, 30) + '...');
+    console.log('Token length:', token.length);
+    
     const secret = process.env.JWT_SECRET || 'your-secret-key';
 
     const decoded = jwt.verify(token, secret) as JwtPayload;
     req.user = decoded;
+    console.log('✅ Token valid, user:', decoded.email);
 
     next();
   } catch (error) {
+    console.error('❌ Token verification failed:', error instanceof Error ? error.message : error);
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
