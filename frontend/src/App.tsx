@@ -34,7 +34,14 @@ function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?
   return <>{children}</>;
 }
 
+import { usePushNotification } from './hooks/usePushNotification';
+
 function App() {
+  const { requestPermission } = usePushNotification();
+
+  // Request permission on app load if authenticated (handled inside hook)
+  // Or you can trigger it manually based on user action
+
   return (
     <>
       <Toaster

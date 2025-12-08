@@ -1,159 +1,127 @@
-import { AdminStats } from '../../services/dashboardService';
+import { Users, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { Card } from '../common';
 
 interface StatsOverviewProps {
-  stats: AdminStats['stats'];
-  usersByRole: AdminStats['usersByRole'];
-  eventsByCategory: AdminStats['eventsByCategory'];
+  stats: {
+    totalUsers: number;
+    totalEvents: number;
+    totalRegistrations: number;
+    pendingEvents: number;
+    activeEvents: number;
+    completedEvents: number;
+  };
+  usersByRole: Array<{ role: string; _count: number }>;
+  eventsByCategory: Array<{ category: string; _count: number }>;
 }
 
 export default function StatsOverview({ stats, usersByRole, eventsByCategory }: StatsOverviewProps) {
-  const getRoleLabel = (role: string) => {
-    const labels: Record<string, string> = {
-      ADMIN: 'Admin',
-      EVENT_MANAGER: 'Quản lý sự kiện',
-      VOLUNTEER: 'Tình nguyện viên'
-    };
-    return labels[role] || role;
+  const roleLabels: Record<string, string> = {
+    VOLUNTEER: 'Tình nguyện viên',
+    EVENT_MANAGER: 'Quản lý sự kiện',
+    ADMIN: 'Admin',
   };
 
-  const getCategoryLabel = (category: string) => {
-    const labels: Record<string, string> = {
-      EDUCATION: 'Giáo dục',
-      ENVIRONMENT: 'Môi trường',
-      HEALTH: 'Sức khỏe',
-      COMMUNITY: 'Cộng đồng',
-      OTHER: 'Khác'
-    };
-    return labels[category] || category;
+  const categoryLabels: Record<string, string> = {
+    TREE_PLANTING: 'Trồng cây',
+    CLEANING: 'Dọn dẹp',
+    CHARITY: 'Từ thiện',
+    EDUCATION: 'Giáo dục',
+    HEALTHCARE: 'Y tế',
+    DIGITAL_LITERACY: 'Tin học',
+    COMMUNITY: 'Cộng đồng',
+    OTHER: 'Khác',
   };
 
   return (
     <div className="space-y-6">
-      {/* Main Stats */}
+      {/* Main Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Tổng người dùng</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalUsers}</p>
+              <p className="text-blue-100 text-sm font-medium">Tổng người dùng</p>
+              <p className="text-3xl font-bold mt-2">{stats.totalUsers}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">👥</span>
-            </div>
+            <Users className="w-12 h-12 text-blue-200" />
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Tổng sự kiện</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalEvents}</p>
+              <p className="text-green-100 text-sm font-medium">Tổng sự kiện</p>
+              <p className="text-3xl font-bold mt-2">{stats.totalEvents}</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">📅</span>
-            </div>
+            <Calendar className="w-12 h-12 text-green-200" />
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Tổng đăng ký</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalRegistrations}</p>
+              <p className="text-purple-100 text-sm font-medium">Đăng ký tham gia</p>
+              <p className="text-3xl font-bold mt-2">{stats.totalRegistrations}</p>
             </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">📝</span>
-            </div>
+            <CheckCircle className="w-12 h-12 text-purple-200" />
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Chờ duyệt</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingEvents}</p>
+              <p className="text-orange-100 text-sm font-medium">Chờ duyệt</p>
+              <p className="text-3xl font-bold mt-2">{stats.pendingEvents}</p>
             </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl">⏳</span>
-            </div>
+            <AlertCircle className="w-12 h-12 text-orange-200" />
           </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Users by Role */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Người dùng theo vai trò</h3>
-          <div className="space-y-4">
-            {usersByRole.map((item) => {
-              const percentage = (item._count / stats.totalUsers) * 100;
-              return (
-                <div key={item.role}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      {getRoleLabel(item.role)}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {item._count} ({percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        item.role === 'ADMIN'
-                          ? 'bg-red-500'
-                          : item.role === 'EVENT_MANAGER'
-                          ? 'bg-blue-500'
-                          : 'bg-green-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Event Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Trạng thái sự kiện</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Đang hoạt động</span>
+              <span className="text-2xl font-bold text-green-600">{stats.activeEvents}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Chờ duyệt</span>
+              <span className="text-2xl font-bold text-yellow-600">{stats.pendingEvents}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Đã hoàn thành</span>
+              <span className="text-2xl font-bold text-blue-600">{stats.completedEvents}</span>
+            </div>
           </div>
-        </div>
+        </Card>
+
+        {/* Users by Role */}
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Người dùng theo vai trò</h3>
+          <div className="space-y-3">
+            {usersByRole.map((item) => (
+              <div key={item.role} className="flex justify-between items-center">
+                <span className="text-gray-600">{roleLabels[item.role] || item.role}</span>
+                <span className="text-xl font-bold text-gray-900">{item._count}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
 
         {/* Events by Category */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Sự kiện theo danh mục</h3>
-          <div className="space-y-4">
-            {eventsByCategory.map((item) => {
-              const totalApprovedEvents = eventsByCategory.reduce((sum, cat) => sum + cat._count, 0);
-              const percentage = (item._count / totalApprovedEvents) * 100;
-              return (
-                <div key={item.category}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      {getCategoryLabel(item.category)}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {item._count} ({percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        item.category === 'EDUCATION'
-                          ? 'bg-blue-500'
-                          : item.category === 'ENVIRONMENT'
-                          ? 'bg-green-500'
-                          : item.category === 'HEALTH'
-                          ? 'bg-red-500'
-                          : item.category === 'COMMUNITY'
-                          ? 'bg-purple-500'
-                          : 'bg-gray-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {eventsByCategory.map((item) => (
+              <div key={item.category} className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">{categoryLabels[item.category] || item.category}</span>
+                <span className="font-semibold text-gray-900">{item._count}</span>
+              </div>
+            ))}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

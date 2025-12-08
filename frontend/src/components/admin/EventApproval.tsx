@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Calendar, MapPin, Users, Check, X, Eye } from 'lucide-react';
 import { eventService, Event } from '../../services/eventService';
+import { Button, Card, Loading, Modal } from '../common';
 import toast from 'react-hot-toast';
 
 interface EventApprovalProps {
@@ -9,212 +11,282 @@ interface EventApprovalProps {
 export default function EventApproval({ onEventStatusChanged }: EventApprovalProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingEventId, setUpdatingEventId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('PENDING');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
-    loadPendingEvents();
-  }, []);
+    fetchEvents();
+  }, [statusFilter]);
 
-  const loadPendingEvents = async () => {
+  const fetchEvents = async () => {
     try {
       setLoading(true);
-      const data = await eventService.getEvents({ status: 'PENDING' });
+      const data = await eventService.getAllEvents({ status: statusFilter, limit: 50 });
       setEvents(data.events);
-    } catch (error: any) {
-      toast.error('Không thể tải danh sách sự kiện chờ duyệt');
+    } catch (error) {
+      toast.error('Không thể tải danh sách sự kiện');
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleApprove = async (eventId: string) => {
-    if (!confirm('Bạn có chắc muốn duyệt sự kiện này?')) return;
+    if (!confirm('Phê duyệt sự kiện này?')) return;
 
     try {
-      setUpdatingEventId(eventId);
-      await eventService.updateEventStatus(eventId, 'APPROVED');
-      toast.success('Đã duyệt sự kiện');
-      loadPendingEvents();
-      // Gọi callback để cập nhật stats trong dashboard
-      if (onEventStatusChanged) {
-        onEventStatusChanged();
-      }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Duyệt sự kiện thất bại');
-    } finally {
-      setUpdatingEventId(null);
+      await eventService.approveEvent(eventId);
+      toast.success('Đã phê duyệt sự kiện');
+      fetchEvents();
+      if (onEventStatusChanged) onEventStatusChanged();
+    } catch (error) {
+      toast.error('Không thể phê duyệt sự kiện');
     }
   };
 
   const handleReject = async (eventId: string) => {
-    if (!confirm('Bạn có chắc muốn từ chối sự kiện này?')) return;
+    if (!confirm('Từ chối sự kiện này?')) return;
 
     try {
-      setUpdatingEventId(eventId);
-      await eventService.updateEventStatus(eventId, 'REJECTED');
+      await eventService.rejectEvent(eventId);
       toast.success('Đã từ chối sự kiện');
-      loadPendingEvents();
-      // Gọi callback để cập nhật stats trong dashboard
-      if (onEventStatusChanged) {
-        onEventStatusChanged();
-      }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || 'Từ chối sự kiện thất bại');
-    } finally {
-      setUpdatingEventId(null);
+      fetchEvents();
+      if (onEventStatusChanged) onEventStatusChanged();
+    } catch (error) {
+      toast.error('Không thể từ chối sự kiện');
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleDelete = async (eventId: string) => {
+    if (!confirm('Xóa sự kiện này? Hành động này không thể hoàn tác!')) return;
+
+    try {
+      await eventService.deleteEvent(eventId);
+      toast.success('Đã xóa sự kiện');
+      fetchEvents();
+      if (onEventStatusChanged) onEventStatusChanged();
+    } catch (error) {
+      toast.error('Không thể xóa sự kiện');
+    }
   };
 
-  const getCategoryBadge = (category: string) => {
-    const config: Record<string, { label: string; class: string }> = {
-      EDUCATION: { label: 'Giáo dục', class: 'bg-blue-100 text-blue-800' },
-      ENVIRONMENT: { label: 'Môi trường', class: 'bg-green-100 text-green-800' },
-      HEALTH: { label: 'Sức khỏe', class: 'bg-red-100 text-red-800' },
-      COMMUNITY: { label: 'Cộng đồng', class: 'bg-purple-100 text-purple-800' },
-      OTHER: { label: 'Khác', class: 'bg-gray-100 text-gray-800' }
+  const getStatusBadge = (status: string) => {
+    const config = {
+      PENDING: { label: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-800' },
+      APPROVED: { label: 'Đã duyệt', color: 'bg-green-100 text-green-800' },
+      REJECTED: { label: 'Từ chối', color: 'bg-red-100 text-red-800' },
+      COMPLETED: { label: 'Hoàn thành', color: 'bg-blue-100 text-blue-800' },
+      CANCELLED: { label: 'Đã hủy', color: 'bg-gray-100 text-gray-800' },
     };
-    const { label, class: className } = config[category] || { label: category, class: 'bg-gray-100 text-gray-800' };
-    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${className}`}>{label}</span>;
+    const c = config[status as keyof typeof config] || { label: status, color: 'bg-gray-100 text-gray-800' };
+    return <span className={`px-3 py-1 rounded-full text-xs font-medium ${c.color}`}>{c.label}</span>;
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      TREE_PLANTING: 'Trồng cây',
+      CLEANING: 'Dọn dẹp',
+      CHARITY: 'Từ thiện',
+      EDUCATION: 'Giáo dục',
+      HEALTHCARE: 'Y tế',
+      DIGITAL_LITERACY: 'Tin học',
+      COMMUNITY: 'Cộng đồng',
+      OTHER: 'Khác',
+    };
+    return labels[category] || category;
+  };
+
+  if (loading && events.length === 0) {
+    return <Loading text="Đang tải sự kiện..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Duyệt sự kiện ({events.length})
-          </h2>
-        </div>
+      {/* Status Filter */}
+      <div className="flex gap-3">
+        {['PENDING', 'APPROVED', 'REJECTED'].map((status) => (
+          <Button
+            key={status}
+            variant={statusFilter === status ? 'primary' : 'outline'}
+            onClick={() => setStatusFilter(status)}
+          >
+            {status === 'PENDING' && 'Chờ duyệt'}
+            {status === 'APPROVED' && 'Đã duyệt'}
+            {status === 'REJECTED' && 'Từ chối'}
+            {status === 'PENDING' && events.filter(e => e.status === 'PENDING').length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs">
+                {events.filter(e => e.status === 'PENDING').length}
+              </span>
+            )}
+          </Button>
+        ))}
+      </div>
 
-        {events.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
-              Không có sự kiện chờ duyệt
-            </h3>
-            <p className="text-gray-600">
-              Tất cả sự kiện đã được xử lý
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {events.map((event) => (
-              <div key={event.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex gap-6">
-                  {/* Event Image */}
-                  {event.imageUrl && (
-                    <div className="flex-shrink-0">
-                      <img
-                        src={event.imageUrl}
-                        alt={event.title}
-                        className="w-32 h-32 object-cover rounded-lg"
-                      />
+      {/* Events List */}
+      {events.length === 0 ? (
+        <Card className="text-center py-12">
+          <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">Không có sự kiện nào</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {events.map((event) => (
+            <Card key={event.id} className="hover:shadow-lg transition">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <h3 className="text-xl font-semibold text-gray-900">{event.title}</h3>
+                    {getStatusBadge(event.status)}
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                      {getCategoryLabel(event.category)}
+                    </span>
+                  </div>
+
+                  <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(event.startDate).toLocaleDateString('vi-VN')}</span>
                     </div>
-                  )}
-
-                  {/* Event Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {event.title}
-                        </h3>
-                        <div className="flex items-center gap-2 mb-2">
-                          {getCategoryBadge(event.category)}
-                          {event.manager && (
-                            <span className="text-sm text-gray-600">
-                              Quản lý: {event.manager.fullName}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      <span className="truncate">{event.location}</span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-3">
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          <strong>📍 Địa điểm:</strong> {event.location}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          <strong>📅 Bắt đầu:</strong> {formatDate(event.startDate)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          <strong>📅 Kết thúc:</strong> {formatDate(event.endDate)}
-                        </p>
-                      </div>
-                      <div>
-                        {event.maxParticipants && (
-                          <p className="text-sm text-gray-600">
-                            <strong>👥 Số lượng:</strong> {event.maxParticipants} người
-                          </p>
-                        )}
-                        <p className="text-sm text-gray-600">
-                          <strong>🕐 Tạo lúc:</strong> {formatDate(event.createdAt)}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>
+                        {event._count?.registrations || 0}
+                        {event.maxParticipants && ` / ${event.maxParticipants}`}
+                      </span>
                     </div>
-
-                    <div className="mb-4">
-                      <button
-                        onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        {selectedEvent?.id === event.id ? 'Ẩn mô tả' : 'Xem mô tả'}
-                      </button>
-                      {selectedEvent?.id === event.id && (
-                        <div className="mt-3 p-4 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                            {event.description}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleApprove(event.id)}
-                        disabled={updatingEventId !== null}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {updatingEventId === event.id ? 'Đang xử lý...' : '✓ Duyệt'}
-                      </button>
-                      <button
-                        onClick={() => handleReject(event.id)}
-                        disabled={updatingEventId !== null}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {updatingEventId === event.id ? 'Đang xử lý...' : '✗ Từ chối'}
-                      </button>
+                    <div className="text-gray-500">
+                      <span className="font-medium">Quản lý:</span> {event.manager?.fullName}
                     </div>
                   </div>
                 </div>
+
+                <div className="flex gap-2 ml-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedEvent(event);
+                      setShowDetailModal(true);
+                    }}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+
+                  {event.status === 'PENDING' && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={() => handleApprove(event.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Check className="w-4 h-4" />
+                        Duyệt
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => handleReject(event.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <X className="w-4 h-4" />
+                        Từ chối
+                      </Button>
+                    </>
+                  )}
+
+                  {(event.status === 'REJECTED' || event.status === 'APPROVED') && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDelete(event.id)}
+                    >
+                      Xóa
+                    </Button>
+                  )}
+                </div>
               </div>
-            ))}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Event Detail Modal */}
+      <Modal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        title="Chi tiết sự kiện"
+        size="lg"
+      >
+        {selectedEvent && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tên sự kiện</label>
+              <p className="text-gray-900 font-semibold">{selectedEvent.title}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+              <p className="text-gray-700 whitespace-pre-wrap">{selectedEvent.description}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                <p className="text-gray-900">{getCategoryLabel(selectedEvent.category)}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                <div>{getStatusBadge(selectedEvent.status)}</div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Địa điểm</label>
+              <p className="text-gray-900">{selectedEvent.location}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bắt đầu</label>
+                <p className="text-gray-900">
+                  {new Date(selectedEvent.startDate).toLocaleString('vi-VN')}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kết thúc</label>
+                <p className="text-gray-900">
+                  {new Date(selectedEvent.endDate).toLocaleString('vi-VN')}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Người quản lý</label>
+              <p className="text-gray-900">{selectedEvent.manager?.fullName}</p>
+              <p className="text-sm text-gray-500">{selectedEvent.manager?.email}</p>
+            </div>
+
+            {selectedEvent.imageUrl && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hình ảnh</label>
+                <img
+                  src={selectedEvent.imageUrl}
+                  alt={selectedEvent.title}
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </Modal>
     </div>
   );
 }

@@ -38,8 +38,8 @@ export const userService = {
   },
 
   // Cập nhật trạng thái user (Admin only)
-  async updateUserStatus(userId: string, data: UpdateUserStatusData): Promise<User> {
-    const response = await api.patch(`/users/${userId}/status`, data);
+  async updateUserStatus(userId: string, status: 'ACTIVE' | 'LOCKED' | 'PENDING'): Promise<User> {
+    const response = await api.patch(`/users/${userId}/status`, { accountStatus: status });
     return response.data.user;
   },
 

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { sendPushNotification } from './notification.controller';
 
 // POST /api/registrations/events/:eventId/register
 export const registerForEvent = async (req: Request, res: Response): Promise<void> => {
@@ -71,7 +72,13 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       }
     });
 
-    // TODO: Send notification to event manager
+    // Send notification to event manager
+    await sendPushNotification(
+      event.managerId,
+      'Đăng ký mới',
+      `${(req.user as any)?.fullName || 'Một tình nguyện viên'} đã đăng ký tham gia sự kiện "${event.title}"`,
+      { type: 'new_registration', eventId: event.id, registrationId: registration.id }
+    );
 
     res.status(201).json({
       message: 'Registration successful. Waiting for approval.',
@@ -230,7 +237,13 @@ export const approveRegistration = async (req: Request, res: Response): Promise<
       }
     });
 
-    // TODO: Send notification to volunteer
+    // Send notification to volunteer
+    await sendPushNotification(
+      registration.userId,
+      'Đăng ký được duyệt',
+      `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã được chấp nhận.`,
+      { type: 'registration_approved', eventId: registration.event.id }
+    );
 
     res.json({
       message: 'Registration approved successfully',
@@ -267,7 +280,13 @@ export const rejectRegistration = async (req: Request, res: Response): Promise<v
       }
     });
 
-    // TODO: Send notification to volunteer
+    // Send notification to volunteer
+    await sendPushNotification(
+      registration.userId,
+      'Đăng ký bị từ chối',
+      `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã bị từ chối.`,
+      { type: 'registration_rejected', eventId: registration.event.id }
+    );
 
     res.json({
       message: 'Registration rejected',
@@ -308,7 +327,13 @@ export const markAsCompleted = async (req: Request, res: Response): Promise<void
       }
     });
 
-    // TODO: Send notification to volunteer
+    // Send notification to volunteer
+    await sendPushNotification(
+      registration.userId,
+      'Hoàn thành sự kiện',
+      `Chúc mừng! Bạn đã hoàn thành sự kiện "${registration.event.title}".`,
+      { type: 'event_completed', eventId: registration.event.id }
+    );
 
     res.json({
       message: 'Registration marked as completed',

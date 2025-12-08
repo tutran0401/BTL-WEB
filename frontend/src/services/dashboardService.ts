@@ -39,6 +39,12 @@ export interface AdminStats {
 }
 
 export const dashboardService = {
+  // Lấy thống kê dashboard chung
+  async getDashboard(): Promise<any> {
+    const response = await api.get('/dashboard');
+    return response.data;
+  },
+
   // Lấy thống kê admin dashboard
   async getAdminDashboard(): Promise<AdminStats> {
     const response = await api.get('/dashboard/admin');

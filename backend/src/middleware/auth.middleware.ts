@@ -67,9 +67,35 @@ export const checkAccountStatus = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // TODO: Implement check account status from database
+    if (!req.user?.userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const prisma = (await import('../config/database')).default;
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { accountStatus: true }
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (user.accountStatus === 'LOCKED') {
+      res.status(403).json({ error: 'Your account has been locked. Please contact administrator.' });
+      return;
+    }
+
+    if (user.accountStatus === 'PENDING') {
+      res.status(403).json({ error: 'Your account is pending approval.' });
+      return;
+    }
+
     next();
   } catch (error) {
+    console.error('Check account status error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

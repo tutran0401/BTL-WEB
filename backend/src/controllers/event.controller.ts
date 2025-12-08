@@ -1,21 +1,22 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { sendPushNotification } from './notification.controller';
 
 // GET /api/events
 export const getAllEvents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { 
-      status, 
-      category, 
-      search, 
-      startDate, 
+    const {
+      status,
+      category,
+      search,
+      startDate,
       endDate,
-      page = '1', 
-      limit = '10' 
+      page = '1',
+      limit = '10'
     } = req.query;
 
     const where: any = {};
-    
+
     // Nếu user là admin và có filter status thì dùng filter đó
     // Ngược lại, chỉ show events đã approve cho public
     if (req.user?.role === 'ADMIN') {
@@ -28,7 +29,7 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
       // Non-admin chỉ thấy events đã approve
       where.status = 'APPROVED';
     }
-    
+
     if (category) where.category = category;
     if (search) {
       where.OR = [
@@ -260,7 +261,13 @@ export const approveEvent = async (req: Request, res: Response): Promise<void> =
       data: { status: 'APPROVED' }
     });
 
-    // TODO: Send notification to event manager
+    // Send notification to event manager
+    await sendPushNotification(
+      event.managerId,
+      'Sự kiện được duyệt',
+      `Sự kiện "${event.title}" của bạn đã được phê duyệt và công khai.`,
+      { type: 'event_approved', eventId: event.id }
+    );
 
     res.json({
       message: 'Event approved successfully',
@@ -282,7 +289,13 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
       data: { status: 'REJECTED' }
     });
 
-    // TODO: Send notification to event manager
+    // Send notification to event manager
+    await sendPushNotification(
+      event.managerId,
+      'Sự kiện bị từ chối',
+      `Sự kiện "${event.title}" của bạn đã bị từ chối.`,
+      { type: 'event_rejected', eventId: event.id }
+    );
 
     res.json({
       message: 'Event rejected',
