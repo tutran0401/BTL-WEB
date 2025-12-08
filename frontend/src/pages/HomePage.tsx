@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Heart, Users, Calendar, Award } from 'lucide-react';
 
-export default function HomePage() {
+export default function HomePage() { 
   return (
     <div>
       {/* Hero Section */}
@@ -96,7 +96,7 @@ export default function HomePage() {
             Đăng ký ngay hôm nay để khám phá và tham gia các hoạt động tình nguyện ý nghĩa.
           </p>
           <Link
-            to="/register"
+            to="/login"
             className="inline-block bg-primary-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-700 transition"
           >
             Bắt đầu ngay

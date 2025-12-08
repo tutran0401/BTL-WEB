@@ -62,7 +62,7 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Theo dõi chúng tôi</h3>
             <div className="flex space-x-4">
-              <a href="#" className="hover:text-primary-500 transition">
+              <a href="https://www.facebook.com/profile.php?id=61584649298288" className="hover:text-primary-500 transition">
                 Facebook
               </a>
               <a href="#" className="hover:text-primary-500 transition">
