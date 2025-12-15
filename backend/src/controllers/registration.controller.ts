@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { sendPushNotification } from './notification.controller';
+import { io } from '../server';
 
 // POST /api/registrations/events/:eventId/register
 export const registerForEvent = async (req: Request, res: Response): Promise<void> => {
@@ -79,6 +80,23 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       `${(req.user as any)?.fullName || 'Một tình nguyện viên'} đã đăng ký tham gia sự kiện "${event.title}"`,
       { type: 'new_registration', eventId: event.id, registrationId: registration.id }
     );
+
+    // Emit socket event for real-time notification
+    io.emit(`user:${event.managerId}:notification`, {
+      id: registration.id,
+      title: 'Đăng ký mới',
+      message: `${(req.user as any)?.fullName || 'Một tình nguyện viên'} đã đăng ký tham gia sự kiện "${event.title}"`,
+      type: 'new_registration',
+      data: { eventId: event.id, registrationId: registration.id }
+    });
+
+    // Emit to event room
+    io.to(`event-${eventId}`).emit('new-registration', {
+      registrationId: registration.id,
+      eventId: event.id,
+      eventTitle: event.title,
+      userName: (req.user as any)?.fullName || 'Unknown'
+    });
 
     res.status(201).json({
       message: 'Registration successful. Waiting for approval.',

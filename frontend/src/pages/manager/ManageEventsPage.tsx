@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, MapPin, Users, Edit, Trash2, Check, X, Eye, CheckCircle, Upload } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, Edit, Trash2, Check, X, Eye, CheckCircle, Upload, Download } from 'lucide-react';
 import { eventService, Event } from '../../services/eventService';
 import { registrationService, Registration } from '../../services/registrationService';
 import { Button, Card, Modal, Loading } from '../../components/common';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketNotifications } from '../../hooks/useSocketNotifications';
 
 const categories = [
   { value: 'TREE_PLANTING', label: 'Trồng cây' },
@@ -22,10 +23,41 @@ export default function ManageEventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+
+  // Setup socket notifications for real-time updates
+  useSocketNotifications({
+    onNewRegistration: async (data) => {
+      console.log('New registration received:', data);
+      // Refresh events to get updated registration count
+      fetchMyEvents();
+      
+      // If viewing registrations for this event, refresh them
+      if (showRegistrationsModal && selectedEvent?.id === data.eventId) {
+        try {
+          const registrationData = await registrationService.getEventRegistrations(data.eventId);
+          setRegistrations(registrationData.registrations);
+        } catch (error) {
+          console.error('Error refreshing registrations:', error);
+        }
+      }
+    },
+    onEventApproved: (data) => {
+      console.log('Event approved:', data);
+      // Refresh events to get updated status
+      fetchMyEvents();
+    },
+    onEventRejected: (data) => {
+      console.log('Event rejected:', data);
+      // Refresh events to get updated status
+      fetchMyEvents();
+    },
+    showToast: true,
+  });
 
   useEffect(() => {
     fetchMyEvents();
@@ -45,6 +77,11 @@ export default function ManageEventsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (event: Event) => {
+    setSelectedEvent(event);
+    setShowEditModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -119,6 +156,60 @@ export default function ManageEventsPage() {
     } catch (error) {
       toast.error('Không thể đánh dấu hoàn thành');
     }
+  };
+
+  const exportToCSV = () => {
+    if (registrations.length === 0) {
+      toast.error('Không có dữ liệu để export');
+      return;
+    }
+
+    // Tạo CSV header
+    const headers = ['STT', 'Họ tên', 'Email', 'Số điện thoại', 'Trạng thái', 'Hoàn thành', 'Ngày đăng ký'];
+    
+    // Tạo CSV rows
+    const rows = registrations.map((reg, index) => [
+      index + 1,
+      reg.user?.fullName || '',
+      reg.user?.email || '',
+      reg.user?.phone || '',
+      getStatusText(reg.status),
+      reg.isCompleted ? 'Có' : 'Không',
+      new Date(reg.createdAt).toLocaleDateString('vi-VN')
+    ]);
+
+    // Kết hợp header và rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Thêm BOM để Excel hiển thị đúng tiếng Việt
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // Tạo link download
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `danh-sach-tinh-nguyen-vien-${selectedEvent?.title.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Đã export danh sách ra CSV');
+  };
+
+  const getStatusText = (status: string) => {
+    const labels = {
+      PENDING: 'Chờ duyệt',
+      APPROVED: 'Đã duyệt',
+      REJECTED: 'Từ chối',
+      CANCELLED: 'Đã hủy',
+      COMPLETED: 'Hoàn thành',
+    };
+    return labels[status as keyof typeof labels] || status;
   };
 
   const getStatusBadge = (status: string) => {
@@ -238,7 +329,7 @@ export default function ManageEventsPage() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => {/* TODO: Edit */}}
+                    onClick={() => handleEdit(event)}
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -266,6 +357,23 @@ export default function ManageEventsPage() {
         }}
       />
 
+      {/* Edit Event Modal */}
+      {selectedEvent && (
+        <EditEventModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedEvent(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setSelectedEvent(null);
+            fetchMyEvents();
+          }}
+          event={selectedEvent}
+        />
+      )}
+
       {/* Registrations Modal */}
       <Modal
         isOpen={showRegistrationsModal}
@@ -281,6 +389,22 @@ export default function ManageEventsPage() {
             <p className="text-gray-500">Chưa có người đăng ký</p>
           </div>
         ) : (
+          <>
+            {/* Export Button */}
+            <div className="mb-4 flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                Tổng số: <span className="font-semibold">{registrations.length}</span> người đăng ký
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportToCSV}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </Button>
+            </div>
           <div className="space-y-3">
             {registrations.map((reg) => (
               <div key={reg.id} className="flex items-center justify-between p-4 border rounded-lg">
@@ -332,6 +456,7 @@ export default function ManageEventsPage() {
               </div>
             ))}
           </div>
+          </>
         )}
       </Modal>
     </div>
@@ -627,6 +752,305 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
           </Button>
           <Button type="submit" loading={loading}>
             Tạo sự kiện
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// Edit Event Modal Component
+function EditEventModal({ isOpen, onClose, onSuccess, event }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  event: Event;
+}) {
+  const { token } = useAuthStore();
+  
+  const [formData, setFormData] = useState({
+    title: event.title,
+    description: event.description,
+    location: event.location,
+    startDate: new Date(event.startDate).toISOString().slice(0, 16),
+    endDate: new Date(event.endDate).toISOString().slice(0, 16),
+    category: event.category,
+    maxParticipants: event.maxParticipants?.toString() || '',
+    imageUrl: event.imageUrl || '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Update formData when event changes
+  useEffect(() => {
+    setFormData({
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      startDate: new Date(event.startDate).toISOString().slice(0, 16),
+      endDate: new Date(event.endDate).toISOString().slice(0, 16),
+      category: event.category,
+      maxParticipants: event.maxParticipants?.toString() || '',
+      imageUrl: event.imageUrl || '',
+    });
+  }, [event]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 5MB');
+      return;
+    }
+
+    setUploading(true);
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', file);
+
+    try {
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để upload ảnh');
+        setUploading(false);
+        return;
+      }
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/events/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: uploadFormData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setFormData(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      toast.success('Upload ảnh thành công!');
+    } catch (error) {
+      toast.error('Không thể upload ảnh');
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const data = {
+        ...formData,
+        maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
+        imageUrl: formData.imageUrl || undefined,
+      };
+
+      await eventService.updateEvent(event.id, data);
+      toast.success('Cập nhật sự kiện thành công!');
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Không thể cập nhật sự kiện');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Chỉnh sửa sự kiện" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tên sự kiện *
+          </label>
+          <input
+            type="text"
+            required
+            minLength={5}
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            placeholder="VD: Trồng cây xanh tại công viên..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Mô tả *
+          </label>
+          <textarea
+            required
+            minLength={20}
+            rows={4}
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            placeholder="Mô tả chi tiết về sự kiện..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Địa điểm *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+              placeholder="Công viên Thống Nhất, Hà Nội"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Danh mục *
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              {categories.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày bắt đầu *
+            </label>
+            <input
+              type="datetime-local"
+              required
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày kết thúc *
+            </label>
+            <input
+              type="datetime-local"
+              required
+              value={formData.endDate}
+              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Số người tối đa (tùy chọn)
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={formData.maxParticipants}
+            onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            placeholder="50"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Ảnh sự kiện (tùy chọn)
+          </label>
+          
+          {formData.imageUrl && (
+            <div className="mb-3 relative">
+              <img 
+                src={formData.imageUrl} 
+                alt="Preview" 
+                className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  toast.error('Không thể tải ảnh. Vui lòng kiểm tra URL.');
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition"
+                title="Xóa ảnh"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <label className="block cursor-pointer">
+              <div className="px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 transition text-center bg-gray-50 hover:bg-gray-100">
+                {uploading ? (
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
+                    <span className="text-sm">Đang tải lên...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <Upload className="w-5 h-5" />
+                    <span className="text-sm font-medium">Chọn ảnh từ máy tính</span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  JPG, PNG, GIF, WebP - Tối đa 5MB
+                </p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-gray-300"></div>
+              <span className="text-sm text-gray-500">hoặc</span>
+              <div className="flex-1 border-t border-gray-300"></div>
+            </div>
+
+            <div>
+              <input
+                type="text"
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                placeholder="Nhập URL ảnh: https://..."
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" loading={loading}>
+            Cập nhật sự kiện
           </Button>
         </div>
       </form>

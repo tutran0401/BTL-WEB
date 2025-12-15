@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { sendPushNotification } from './notification.controller';
+import { io } from '../server';
 
 // GET /api/events
 export const getAllEvents = async (req: Request, res: Response): Promise<void> => {
@@ -269,6 +270,15 @@ export const approveEvent = async (req: Request, res: Response): Promise<void> =
       { type: 'event_approved', eventId: event.id }
     );
 
+    // Emit socket event for real-time notification
+    io.emit(`user:${event.managerId}:notification`, {
+      id: event.id,
+      title: 'Sự kiện được duyệt',
+      message: `Sự kiện "${event.title}" của bạn đã được phê duyệt và công khai.`,
+      type: 'event_approved',
+      data: { eventId: event.id }
+    });
+
     res.json({
       message: 'Event approved successfully',
       event
@@ -296,6 +306,15 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
       `Sự kiện "${event.title}" của bạn đã bị từ chối.`,
       { type: 'event_rejected', eventId: event.id }
     );
+
+    // Emit socket event for real-time notification
+    io.emit(`user:${event.managerId}:notification`, {
+      id: event.id,
+      title: 'Sự kiện bị từ chối',
+      message: `Sự kiện "${event.title}" của bạn đã bị từ chối.`,
+      type: 'event_rejected',
+      data: { eventId: event.id }
+    });
 
     res.json({
       message: 'Event rejected',

@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { notificationService, Notification } from '../../services/notificationService';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useSocket } from '../../contexts/SocketContext';
+import { useAuthStore } from '../../store/authStore';
 
 export default function NotificationDropdown() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -11,13 +13,11 @@ export default function NotificationDropdown() {
     const [loading, setLoading] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    const { socket, isConnected } = useSocket();
+    const { user } = useAuthStore();
 
     useEffect(() => {
         loadNotifications();
-
-        // Poll for notifications every minute
-        const interval = setInterval(loadNotifications, 60000);
-        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -31,7 +31,7 @@ export default function NotificationDropdown() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const loadNotifications = async () => {
+    const loadNotifications = useCallback(async () => {
         try {
             const data = await notificationService.getMyNotifications(1, 5);
             setNotifications(data.notifications);
@@ -39,7 +39,38 @@ export default function NotificationDropdown() {
         } catch (error) {
             console.error('Error loading notifications:', error);
         }
-    };
+    }, []);
+
+    // Setup Socket.io real-time listeners
+    useEffect(() => {
+        if (!socket || !isConnected || !user) return;
+
+        // Listen for notifications targeted to this user
+        const handleNotification = (notification: any) => {
+            console.log('🔔 Real-time notification received:', notification);
+            
+            // Add to notifications list
+            setNotifications(prev => [notification, ...prev.slice(0, 4)]);
+            setUnreadCount(prev => prev + 1);
+            
+            // Show toast
+            toast.success(notification.message, {
+                duration: 5000,
+            });
+        };
+
+        // Listen to user-specific notification channel
+        socket.on(`user:${user.id}:notification`, handleNotification);
+
+        // Also listen to general notification event
+        socket.on('notification', handleNotification);
+
+        // Cleanup
+        return () => {
+            socket.off(`user:${user.id}:notification`, handleNotification);
+            socket.off('notification', handleNotification);
+        };
+    }, [socket, isConnected, user]);
 
     const handleMarkAsRead = async (id: string) => {
         try {

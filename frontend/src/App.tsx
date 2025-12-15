@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
+import { SocketProvider } from './contexts/SocketContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -43,7 +44,7 @@ function App() {
   // Or you can trigger it manually based on user action
 
   return (
-    <>
+    <SocketProvider>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -142,7 +143,7 @@ function App() {
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </>
+    </SocketProvider>
   );
 }
 

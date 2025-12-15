@@ -146,6 +146,8 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
       totalEvents,
       totalRegistrations,
       pendingEvents,
+      activeEvents,
+      completedEvents,
       usersByRole,
       eventsByCategory,
       recentUsers,
@@ -155,6 +157,8 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
       prisma.event.count(),
       prisma.registration.count(),
       prisma.event.count({ where: { status: 'PENDING' } }),
+      prisma.event.count({ where: { status: 'APPROVED' } }),
+      prisma.event.count({ where: { status: 'COMPLETED' } }),
       
       // Users by role
       prisma.user.groupBy({
@@ -208,7 +212,9 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
         totalUsers,
         totalEvents,
         totalRegistrations,
-        pendingEvents
+        pendingEvents,
+        activeEvents,
+        completedEvents
       },
       usersByRole,
       eventsByCategory,

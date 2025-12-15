@@ -5,17 +5,29 @@ import { registrationService, Registration } from '../../services/registrationSe
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 import { PostList } from '../../components/social';
+import { useSocket } from '../../contexts/SocketContext';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
+  const { joinEvent, leaveEvent } = useSocket();
   
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [myRegistration, setMyRegistration] = useState<Registration | null>(null);
   const [checkingRegistration, setCheckingRegistration] = useState(false);
+
+  // Join socket room for this event to receive real-time updates
+  useEffect(() => {
+    if (id && isAuthenticated) {
+      joinEvent(id);
+      return () => {
+        leaveEvent(id);
+      };
+    }
+  }, [id, isAuthenticated, joinEvent, leaveEvent]);
 
   // Load thông tin sự kiện
   useEffect(() => {
