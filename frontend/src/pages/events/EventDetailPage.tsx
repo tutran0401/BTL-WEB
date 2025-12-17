@@ -212,7 +212,8 @@ export default function EventDetailPage() {
 
   const canCancelRegistration = () => {
     if (!myRegistration) return false;
-    return myRegistration.status !== 'COMPLETED' && myRegistration.status !== 'CANCELLED';
+    // Chỉ cho phép hủy đăng ký nếu đang PENDING hoặc APPROVED
+    return myRegistration.status === 'PENDING' || myRegistration.status === 'APPROVED';
   };
 
   if (loading) {
@@ -276,11 +277,20 @@ export default function EventDetailPage() {
 
           {/* Registration Status - Hiển thị nếu đã đăng ký */}
           {myRegistration && !checkingRegistration && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className={`mb-6 p-4 rounded-lg ${
+              myRegistration.status === 'REJECTED' 
+                ? 'bg-red-50 border border-red-200' 
+                : 'bg-blue-50 border border-blue-200'
+            }`}>
               <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-semibold text-blue-900">Trạng thái đăng ký của bạn:</p>
+                <div className="flex-1">
+                  <p className={`font-semibold ${
+                    myRegistration.status === 'REJECTED' ? 'text-red-900' : 'text-blue-900'
+                  }`}>
+                    Trạng thái đăng ký của bạn:
+                  </p>
                   <div className="mt-2">{getStatusBadge(myRegistration.status)}</div>
+                  {myRegistration.status === 'REJECTED' }
                 </div>
                 {canCancelRegistration() && (
                   <button

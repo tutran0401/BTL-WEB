@@ -52,35 +52,15 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
     let registration;
 
     if (existingRegistration) {
-      // If registration was cancelled or rejected, allow re-registration
-      if (existingRegistration.status === 'CANCELLED' || existingRegistration.status === 'REJECTED') {
-        // Update existing registration to PENDING
-        registration = await prisma.registration.update({
-          where: { id: existingRegistration.id },
-          data: {
-            status: 'PENDING',
-            isCompleted: false,
-            completedAt: null,
-            createdAt: new Date() // Update registration time
-          },
-          include: {
-            event: {
-              select: {
-                id: true,
-                title: true,
-                startDate: true,
-                location: true
-              }
-            }
-          }
-        });
-      } else {
-        // Already has active registration (PENDING, APPROVED, or COMPLETED)
-        res.status(400).json({ error: 'Already registered for this event' });
-        return;
-      }
+      // Không cho phép đăng ký lại nếu đã có registration (kể cả REJECTED)
+      res.status(400).json({ 
+        error: existingRegistration.status === 'REJECTED' 
+          ? 'Your registration was rejected. You cannot register again for this event.'
+          : 'Already registered for this event' 
+      });
+      return;
     } else {
-      // Create new registration
+      // Create new registration (chỉ khi chưa có registration hoặc đã cancel trước đó - đã bị xóa)
       registration = await prisma.registration.create({
         data: {
           userId: userId!,
@@ -160,9 +140,9 @@ export const cancelRegistration = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    await prisma.registration.update({
-      where: { id: registration.id },
-      data: { status: 'CANCELLED' }
+    // XÓA HOÀN TOÀN registration thay vì chỉ đổi status
+    await prisma.registration.delete({
+      where: { id: registration.id }
     });
 
     res.json({ message: 'Registration cancelled successfully' });

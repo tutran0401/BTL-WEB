@@ -7,7 +7,7 @@ export default function MyEventsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<string>('');
+  const [filter, setFilter] = useState<string>('ALL'); // Default to ALL
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,8 +17,14 @@ export default function MyEventsPage() {
   const fetchMyRegistrations = async () => {
     try {
       setLoading(true);
-      const response = await registrationService.getMyRegistrations(filter || undefined);
-      setRegistrations(response.registrations);
+      // If filter is 'ALL', fetch all registrations
+      if (filter === 'ALL') {
+        const response = await registrationService.getMyRegistrations(undefined);
+        setRegistrations(response.registrations);
+      } else {
+        const response = await registrationService.getMyRegistrations(filter || undefined);
+        setRegistrations(response.registrations);
+      }
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Không thể tải danh sách sự kiện');
@@ -80,9 +86,9 @@ export default function MyEventsPage() {
       {/* Filter Tabs */}
       <div className="mb-6 flex flex-wrap gap-2">
         <button
-          onClick={() => setFilter('')}
+          onClick={() => setFilter('ALL')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            filter === '' 
+            filter === 'ALL' 
               ? 'bg-blue-600 text-white' 
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -120,14 +126,14 @@ export default function MyEventsPage() {
           Hoàn thành
         </button>
         <button
-          onClick={() => setFilter('CANCELLED')}
+          onClick={() => setFilter('REJECTED')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            filter === 'CANCELLED' 
+            filter === 'REJECTED' 
               ? 'bg-blue-600 text-white' 
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          Đã hủy
+          Bị từ chối
         </button>
       </div>
 
@@ -289,10 +295,10 @@ export default function MyEventsPage() {
               <div className="text-sm text-gray-600">Hoàn thành</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600">
-                {registrations.filter(r => r.status === 'CANCELLED' || r.status === 'REJECTED').length}
+              <div className="text-2xl font-bold text-red-600">
+                {registrations.filter(r => r.status === 'REJECTED').length}
               </div>
-              <div className="text-sm text-gray-600">Đã hủy/Từ chối</div>
+              <div className="text-sm text-gray-600">Bị từ chối</div>
             </div>
           </div>
         </div>
