@@ -13,8 +13,9 @@ export const registerSchema = Joi.object({
     'string.min': 'Full name must be at least 2 characters long',
     'any.required': 'Full name is required'
   }),
-  phone: Joi.string().pattern(/^[0-9]{10,11}$/).optional().messages({
-    'string.pattern.base': 'Phone must be 10-11 digits'
+  phone: Joi.string().pattern(/^[0-9]{10,11}$/).required().messages({
+    'string.pattern.base': 'Phone must be 10-11 digits',
+    'any.required': 'Phone is required'
   }),
   role: Joi.string().valid('VOLUNTEER', 'EVENT_MANAGER', 'ADMIN').default('VOLUNTEER')
 });

@@ -49,29 +49,56 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       }
     });
 
-    if (existingRegistration) {
-      res.status(400).json({ error: 'Already registered for this event' });
-      return;
-    }
+    let registration;
 
-    // Create registration
-    const registration = await prisma.registration.create({
-      data: {
-        userId: userId!,
-        eventId,
-        status: 'PENDING'
-      },
-      include: {
-        event: {
-          select: {
-            id: true,
-            title: true,
-            startDate: true,
-            location: true
+    if (existingRegistration) {
+      // If registration was cancelled or rejected, allow re-registration
+      if (existingRegistration.status === 'CANCELLED' || existingRegistration.status === 'REJECTED') {
+        // Update existing registration to PENDING
+        registration = await prisma.registration.update({
+          where: { id: existingRegistration.id },
+          data: {
+            status: 'PENDING',
+            isCompleted: false,
+            completedAt: null,
+            createdAt: new Date() // Update registration time
+          },
+          include: {
+            event: {
+              select: {
+                id: true,
+                title: true,
+                startDate: true,
+                location: true
+              }
+            }
+          }
+        });
+      } else {
+        // Already has active registration (PENDING, APPROVED, or COMPLETED)
+        res.status(400).json({ error: 'Already registered for this event' });
+        return;
+      }
+    } else {
+      // Create new registration
+      registration = await prisma.registration.create({
+        data: {
+          userId: userId!,
+          eventId,
+          status: 'PENDING'
+        },
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+              startDate: true,
+              location: true
+            }
           }
         }
-      }
-    });
+      });
+    }
 
     // Send notification to event manager
     await sendPushNotification(

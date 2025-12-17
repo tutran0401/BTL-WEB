@@ -61,7 +61,9 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
           },
           _count: {
             select: {
-              registrations: true,
+              registrations: {
+                where: { status: 'APPROVED' }
+              },
               posts: true
             }
           }
@@ -105,7 +107,9 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
         },
         _count: {
           select: {
-            registrations: true,
+            registrations: {
+              where: { status: 'APPROVED' }
+            },
             posts: true
           }
         }

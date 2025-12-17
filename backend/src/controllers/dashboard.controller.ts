@@ -21,7 +21,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
         },
         _count: {
           select: {
-            registrations: true,
+            registrations: {
+              where: { status: 'APPROVED' }
+            },
             posts: true
           }
         }
@@ -45,7 +47,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       include: {
         _count: {
           select: {
-            registrations: true,
+            registrations: {
+              where: { status: 'APPROVED' }
+            },
             posts: true
           }
         }
@@ -61,6 +65,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
           select: {
             registrations: {
               where: {
+                status: 'APPROVED',
                 createdAt: {
                   gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
                 }
@@ -200,7 +205,9 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
           },
           _count: {
             select: {
-              registrations: true
+              registrations: {
+                where: { status: 'APPROVED' }
+              }
             }
           }
         }
@@ -243,7 +250,9 @@ export const exportEvents = async (req: Request, res: Response): Promise<void> =
         },
         _count: {
           select: {
-            registrations: true,
+            registrations: {
+              where: { status: 'APPROVED' }
+            },
             posts: true
           }
         }
