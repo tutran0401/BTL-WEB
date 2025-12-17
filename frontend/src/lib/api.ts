@@ -58,8 +58,14 @@ api.interceptors.response.use(
         case 500:
           toast.error('Lỗi server. Vui lòng thử lại sau.');
           break;
+        case 400:
+          // Bad request - let components handle their own validation errors
+          break;
         default:
-          toast.error(data?.error || 'Có lỗi xảy ra.');
+          // For other errors, show a generic message
+          if (status >= 500) {
+            toast.error(data?.error || 'Có lỗi xảy ra.');
+          }
       }
     } else if (error.request) {
       toast.error('Không thể kết nối đến server.');
