@@ -67,7 +67,7 @@ return (
                 </Link>
               )}
 
-              {(user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN') && (
+              {(user?.role === 'EVENT_MANAGER') && (
                 <Link to="/manage-events" className={getLinkClasses('/manage-events')}>
                   Quản lý sự kiện
                 </Link>

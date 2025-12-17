@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
 
 // GET /api/dashboard
@@ -239,60 +239,60 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
 };
 
 // GET /api/dashboard/export/events
-export const exportEvents = async (req: Request, res: Response): Promise<void> => {
+export const exportEvents = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { format = 'json' } = req.query;
-
+    const format = req.query.format as string || 'json';
     const events = await prisma.event.findMany({
       include: {
-        manager: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true
-          }
-        },
-        _count: {
-          select: {
-            registrations: {
-              where: { status: 'APPROVED' }
-            },
-            posts: true
-          }
-        }
+        manager: { select: { fullName: true } },
+        _count: { select: { registrations: true } },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     if (format === 'csv') {
-      // Convert to CSV
-      const csvHeader = 'ID,Title,Description,Location,Start Date,End Date,Category,Status,Manager Name,Manager Email,Registrations,Posts\n';
-      const csvRows = events.map(e => 
-        `"${e.id}","${e.title}","${e.description.replace(/"/g, '""')}","${e.location}","${e.startDate.toISOString()}","${e.endDate.toISOString()}","${e.category}","${e.status}","${e.manager.fullName}","${e.manager.email}",${e._count.registrations},${e._count.posts}`
-      ).join('\n');
+      const formatDate = (date: Date) => {
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `"${day}/${month}/${year}"`;
+      };
       
-      const csv = csvHeader + csvRows;
+      const csvRows = [
+        ['ID', 'Tiêu đề', 'Mô tả', 'Địa điểm', 'Ngày bắt đầu', 'Ngày kết thúc', 'Danh mục', 'Trạng thái', 'Người quản lý', 'Số người đăng ký'].join(','),
+        ...events.map(e => [
+          e.id,
+          `"${e.title.replace(/"/g, '""')}"`,
+          `"${e.description.replace(/"/g, '""')}"`,
+          `"${e.location.replace(/"/g, '""')}"`,
+          formatDate(e.startDate),
+          formatDate(e.endDate),
+          e.category,
+          e.status,
+          `"${e.manager.fullName.replace(/"/g, '""')}"`,
+          e._count.registrations,
+        ].join(','))
+      ];
       
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=events.csv');
-      res.send(csv);
+      const csv = csvRows.join('\n');
+      const bom = '\uFEFF'; // UTF-8 BOM
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="events.csv"');
+      res.send(bom + csv);
     } else {
-      // JSON format
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', 'attachment; filename=events.json');
       res.json(events);
     }
   } catch (error) {
-    console.error('Export events error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 };
 
 // GET /api/dashboard/export/users
-export const exportUsers = async (req: Request, res: Response): Promise<void> => {
+export const exportUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { format = 'json' } = req.query;
-
+    const format = req.query.format as string || 'json';
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -302,38 +302,43 @@ export const exportUsers = async (req: Request, res: Response): Promise<void> =>
         role: true,
         accountStatus: true,
         createdAt: true,
-        _count: {
-          select: {
-            managedEvents: true,
-            registrations: true,
-            posts: true
-          }
-        }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     if (format === 'csv') {
-      // Convert to CSV
-      const csvHeader = 'ID,Email,Full Name,Phone,Role,Account Status,Created At,Events Managed,Registrations,Posts\n';
-      const csvRows = users.map(u => 
-        `"${u.id}","${u.email}","${u.fullName}","${u.phone || ''}","${u.role}","${u.accountStatus}","${u.createdAt.toISOString()}",${u._count.managedEvents},${u._count.registrations},${u._count.posts}`
-      ).join('\n');
+      const formatDate = (date: Date) => {
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `"${day}/${month}/${year}"`;
+      };
       
-      const csv = csvHeader + csvRows;
+      const csvRows = [
+        ['ID', 'Email', 'Họ tên', 'Số điện thoại', 'Vai trò', 'Trạng thái', 'Ngày tạo'].join(','),
+        ...users.map(u => [
+          u.id,
+          u.email,
+          `"${u.fullName.replace(/"/g, '""')}"`,
+          u.phone ? `"'${u.phone}"` : '""',
+          u.role,
+          u.accountStatus,
+          formatDate(u.createdAt),
+        ].join(','))
+      ];
       
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=users.csv');
-      res.send(csv);
+      const csv = csvRows.join('\n');
+      const bom = '\uFEFF'; // UTF-8 BOM
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+      res.send(bom + csv);
     } else {
-      // JSON format
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', 'attachment; filename=users.json');
       res.json(users);
     }
   } catch (error) {
-    console.error('Export users error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    next(error);
   }
 };
 
