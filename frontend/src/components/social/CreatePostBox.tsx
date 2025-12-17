@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Image, Smile, X } from 'lucide-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../common';
 import toast from 'react-hot-toast';
@@ -16,7 +17,27 @@ export default function CreatePostBox({ onSubmit, placeholder = "Bạn đang ngh
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -60,6 +81,21 @@ export default function CreatePostBox({ onSubmit, placeholder = "Bạn đang ngh
     setImagePreviews(imagePreviews.filter((_, i) => i !== index));
   };
 
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    const cursor = textareaRef.current?.selectionStart || content.length;
+    const newContent = content.slice(0, cursor) + emojiData.emoji + content.slice(cursor);
+    setContent(newContent);
+    
+    // Focus back to textarea
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = cursor + emojiData.emoji.length;
+        textareaRef.current.selectionEnd = cursor + emojiData.emoji.length;
+      }
+    }, 0);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -77,6 +113,7 @@ export default function CreatePostBox({ onSubmit, placeholder = "Bạn đang ngh
       setImages([]);
       setImagePreviews([]);
       setShowActions(false);
+      setShowEmojiPicker(false);
       toast.success('Đã đăng bài viết');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Không thể đăng bài');
@@ -128,6 +165,7 @@ export default function CreatePostBox({ onSubmit, placeholder = "Bạn đang ngh
         <form onSubmit={handleSubmit} className="px-4 pb-4">
           {/* Full Textarea */}
           <textarea
+            ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder={placeholder}
@@ -168,7 +206,7 @@ export default function CreatePostBox({ onSubmit, placeholder = "Bạn đang ngh
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-gray-900">Thêm vào bài viết của bạn</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -176,16 +214,45 @@ export default function CreatePostBox({ onSubmit, placeholder = "Bạn đang ngh
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Ảnh/Video"
               >
-                <Image className="w-6 h-6 text-green-500" />
+                <Image className="w-5 h-5 text-green-500" />
+                <span className="text-sm font-medium">Ảnh/Video</span>
               </button>
               
-              <button
-                type="button"
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-                title="Cảm xúc/Hoạt động"
-              >
-                <Smile className="w-6 h-6 text-yellow-500" />
-              </button>
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition ${
+                    showEmojiPicker ? 'bg-gray-100' : ''
+                  }`}
+                  title="Cảm xúc/Hoạt động"
+                >
+                  <Smile className="w-5 h-5 text-yellow-500" />
+                  <span className="text-sm font-medium">Cảm xúc</span>
+                </button>
+
+                {/* Emoji Picker Popup */}
+                {showEmojiPicker && (
+                  <div ref={emojiPickerRef} className="absolute right-0 top-full mt-2 z-50">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowEmojiPicker(false)}
+                        className="absolute -top-2 -right-2 p-1 bg-white rounded-full shadow-lg hover:bg-gray-100 z-10"
+                      >
+                        <X className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        width={350}
+                        height={400}
+                        searchPlaceHolder="Tìm emoji..."
+                        previewConfig={{ showPreview: false }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <input
                 ref={fileInputRef}
