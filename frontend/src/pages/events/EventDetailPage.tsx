@@ -157,6 +157,12 @@ export default function EventDetailPage() {
     if (user?.role !== 'VOLUNTEER') return false;
     if (myRegistration) return false;
     if (event.status !== 'APPROVED') return false;
+    
+    // Check if event has ended
+    const now = new Date();
+    const eventEndDate = new Date(event.endDate);
+    if (eventEndDate < now) return false;
+    
     if (event.maxParticipants && (event._count?.registrations ?? 0) >= event.maxParticipants) return false;
     return true;
   };
@@ -320,6 +326,12 @@ export default function EventDetailPage() {
             {event.maxParticipants && (event._count?.registrations ?? 0) >= event.maxParticipants && !myRegistration && (
               <div className="flex-1 px-6 py-3 bg-red-100 text-red-600 rounded-lg text-center font-semibold">
                 Sự kiện đã đầy
+              </div>
+            )}
+
+            {new Date(event.endDate) < new Date() && !myRegistration && (
+              <div className="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-lg text-center font-semibold">
+                Sự kiện đã kết thúc
               </div>
             )}
           </div>

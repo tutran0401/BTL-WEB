@@ -27,7 +27,7 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
       }
       // Nếu không có filter status, admin sẽ thấy tất cả
     } else {
-      // Non-admin chỉ thấy events đã approve
+      // Non-admin chỉ thấy events đã approve (bao gồm cả đã kết thúc để xem posts/comments)
       where.status = 'APPROVED';
     }
 

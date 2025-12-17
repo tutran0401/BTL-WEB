@@ -234,7 +234,7 @@ export default function EventsPage() {
                     <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded-full">
                       {getCategoryLabel(event.category)}
                     </span>
-                    {event.status === 'APPROVED' && (
+                    {event.status === 'APPROVED' && new Date(event.endDate) >= new Date() && (
                       <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                         Đang mở
                       </span>

@@ -9,7 +9,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
 
     // Sự kiện mới công bố (approved events)
     const newEvents = await prisma.event.findMany({
-      where: { status: 'APPROVED' },
+      where: { 
+        status: 'APPROVED'
+      },
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -58,7 +60,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
 
     // Sự kiện thu hút (events with most activity)
     const trendingEvents = await prisma.event.findMany({
-      where: { status: 'APPROVED' },
+      where: { 
+        status: 'APPROVED'
+      },
       take: 5,
       include: {
         _count: {
