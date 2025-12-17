@@ -5,7 +5,7 @@ import { registrationService, Registration } from '../../services/registrationSe
 import { Button, Card, Modal, Loading } from '../../components/common';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
-import { useSocketNotifications } from '../../hooks/useSocketNotifications';
+import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 
 const categories = [
   { value: 'TREE_PLANTING', label: 'Trồng cây' },
@@ -29,34 +29,66 @@ export default function ManageEventsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
 
-  // Setup socket notifications for real-time updates
-  useSocketNotifications({
-    onNewRegistration: async (data) => {
-      console.log('New registration received:', data);
-      // Refresh events to get updated registration count
-      fetchMyEvents();
+  // Setup real-time updates for events and registrations
+  useRealtimeUpdates({
+    onEventUpdated: (data) => {
+      console.log('✅ Event updated:', data);
+      const { event, action } = data;
       
-      // If viewing registrations for this event, refresh them
-      if (showRegistrationsModal && selectedEvent?.id === data.eventId) {
-        try {
-          const registrationData = await registrationService.getEventRegistrations(data.eventId);
-          setRegistrations(registrationData.registrations);
-        } catch (error) {
-          console.error('Error refreshing registrations:', error);
+      // Update event in list
+      setEvents((prevEvents) => {
+        const index = prevEvents.findIndex(e => e.id === event.id);
+        if (index !== -1) {
+          const newEvents = [...prevEvents];
+          newEvents[index] = event;
+          return newEvents;
         }
+        return prevEvents;
+      });
+
+      // Show toast notification
+      if (action === 'approved') {
+        toast.success(`✅ Sự kiện "${event.title}" đã được duyệt!`, { duration: 5000 });
+      } else if (action === 'rejected') {
+        toast.error(`❌ Sự kiện "${event.title}" đã bị từ chối!`, { duration: 5000 });
       }
     },
-    onEventApproved: (data) => {
-      console.log('Event approved:', data);
-      // Refresh events to get updated status
+
+    onRegistrationUpdated: (data) => {
+      console.log('✅ Registration updated:', data);
+      const { registration, action } = data;
+
+      // Refresh events to update registration count
       fetchMyEvents();
+
+      // If viewing registrations for this event, update them
+      if (showRegistrationsModal && selectedEvent?.id === registration.eventId) {
+        setRegistrations((prevRegs) => {
+          const index = prevRegs.findIndex(r => r.id === registration.id);
+          if (index !== -1) {
+            const newRegs = [...prevRegs];
+            newRegs[index] = registration;
+            return newRegs;
+          }
+          return prevRegs;
+        });
+      }
+
+      // Show toast notification
+      const userName = registration.user?.fullName || 'Tình nguyện viên';
+      if (action === 'approved') {
+        toast.success(`✅ Đã duyệt đăng ký của ${userName}`, { duration: 3000 });
+      } else if (action === 'rejected') {
+        toast(`❌ Đã từ chối đăng ký của ${userName}`, { duration: 3000 });
+      } else if (action === 'completed') {
+        toast.success(`🎉 ${userName} đã hoàn thành sự kiện!`, { duration: 3000 });
+      }
     },
-    onEventRejected: (data) => {
-      console.log('Event rejected:', data);
-      // Refresh events to get updated status
-      fetchMyEvents();
+
+    onNotification: (data) => {
+      console.log('🔔 Notification received:', data);
+      // This is handled by useSocketNotifications hook in Navbar
     },
-    showToast: true,
   });
 
   useEffect(() => {

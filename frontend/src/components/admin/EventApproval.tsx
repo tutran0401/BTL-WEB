@@ -4,6 +4,7 @@ import { eventService, Event } from '../../services/eventService';
 import { Button, Card, Loading, Modal } from '../common';
 import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { useRealtimeEvents } from '../../hooks/useRealtimeUpdates';
 
 interface EventApprovalProps {
   onEventStatusChanged?: () => void;
@@ -32,6 +33,34 @@ export default function EventApproval({ onEventStatusChanged }: EventApprovalPro
       setLoading(false);
     }
   };
+
+  // Real-time updates when new events are approved/created
+  useRealtimeEvents({
+    onEventApproved: (data) => {
+      console.log('✅ New approved event received:', data);
+      // If we're looking at approved events, add the new event
+      if (statusFilter === 'APPROVED') {
+        const { event } = data;
+        setEvents((prevEvents) => {
+          // Check if event already exists
+          const exists = prevEvents.some(e => e.id === event.id);
+          if (exists) {
+            // Update existing event
+            return prevEvents.map(e => e.id === event.id ? event : e);
+          } else {
+            // Add new event to the top
+            return [event, ...prevEvents];
+          }
+        });
+      } else if (statusFilter === 'PENDING') {
+        // Remove from pending list
+        setEvents((prevEvents) => prevEvents.filter(e => e.id !== data.event.id));
+      }
+      
+      // Show toast notification
+      toast.success(`✅ Sự kiện "${data.event.title}" đã được duyệt!`, { duration: 4000 });
+    }
+  });
 
   const handleApprove = async (eventId: string) => {
     if (!confirm('Phê duyệt sự kiện này?')) return;

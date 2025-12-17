@@ -7,6 +7,7 @@ import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { PostList } from '../../components/social';
 import { useSocket } from '../../contexts/SocketContext';
+import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +30,48 @@ export default function EventDetailPage() {
       };
     }
   }, [id, isAuthenticated, joinEvent, leaveEvent]);
+
+  // Real-time updates for registrations
+  useRealtimeUpdates({
+    onRegistrationUpdated: (data) => {
+      console.log('📨 Registration updated in EventDetail:', {
+        data,
+        myUserId: user?.id,
+        currentEventId: id,
+        registrationUserId: data?.registration?.userId,
+        registrationEventId: data?.registration?.eventId,
+      });
+      
+      const { registration, action } = data;
+
+      // If this is MY registration, update my registration status
+      if (registration.userId === user?.id && registration.eventId === id) {
+        console.log('✅ This is MY registration! Updating...');
+        setMyRegistration(registration);
+        
+        // Show toast notification based on action
+        if (action === 'approved') {
+          toast.success('🎉 Đăng ký của bạn đã được duyệt!', { duration: 5000 });
+        } else if (action === 'rejected') {
+          toast.error('❌ Đăng ký của bạn đã bị từ chối', { duration: 5000 });
+        } else if (action === 'completed') {
+          toast.success('🎊 Chúc mừng! Bạn đã hoàn thành sự kiện!', { duration: 5000 });
+        }
+      } else {
+        console.log('ℹ️ Not my registration, but reloading event for count update');
+      }
+
+      // Reload event to update registration count
+      if (registration.eventId === id) {
+        loadEventDetail();
+      }
+    },
+
+    onNotification: (data) => {
+      console.log('🔔 Notification in EventDetail:', data);
+      // Handle notifications if needed
+    }
+  });
 
   // Load thông tin sự kiện
   useEffect(() => {

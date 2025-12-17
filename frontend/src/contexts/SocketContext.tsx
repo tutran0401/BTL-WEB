@@ -1,12 +1,19 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/authStore';
+
+export type SocketEventCallback = (data: any) => void;
 
 interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
   joinEvent: (eventId: string) => void;
   leaveEvent: (eventId: string) => void;
+  // Event listeners
+  onEventUpdated: (callback: SocketEventCallback) => () => void;
+  onEventApproved: (callback: SocketEventCallback) => () => void;
+  onRegistrationUpdated: (callback: SocketEventCallback) => () => void;
+  onUserNotification: (callback: SocketEventCallback) => () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -14,6 +21,10 @@ const SocketContext = createContext<SocketContextType>({
   isConnected: false,
   joinEvent: () => {},
   leaveEvent: () => {},
+  onEventUpdated: () => () => {},
+  onEventApproved: () => () => {},
+  onRegistrationUpdated: () => () => {},
+  onUserNotification: () => () => {},
 });
 
 export const useSocket = () => {
@@ -93,8 +104,70 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   };
 
+  // Event listener helpers
+  const onEventUpdated = useCallback((callback: SocketEventCallback) => {
+    if (!socket || !user) return () => {};
+    
+    const eventName = `user:${user.id}:event:updated`;
+    socket.on(eventName, callback);
+    console.log(`👂 Listening to ${eventName}`);
+    
+    return () => {
+      socket.off(eventName, callback);
+      console.log(`🔇 Stopped listening to ${eventName}`);
+    };
+  }, [socket, user]);
+
+  const onEventApproved = useCallback((callback: SocketEventCallback) => {
+    if (!socket) return () => {};
+    
+    const eventName = 'event:approved';
+    socket.on(eventName, callback);
+    console.log(`👂 Listening to ${eventName}`);
+    
+    return () => {
+      socket.off(eventName, callback);
+      console.log(`🔇 Stopped listening to ${eventName}`);
+    };
+  }, [socket]);
+
+  const onRegistrationUpdated = useCallback((callback: SocketEventCallback) => {
+    if (!socket || !user) return () => {};
+    
+    const eventName = `user:${user.id}:registration:updated`;
+    socket.on(eventName, callback);
+    console.log(`👂 Listening to ${eventName}`);
+    
+    return () => {
+      socket.off(eventName, callback);
+      console.log(`🔇 Stopped listening to ${eventName}`);
+    };
+  }, [socket, user]);
+
+  const onUserNotification = useCallback((callback: SocketEventCallback) => {
+    if (!socket || !user) return () => {};
+    
+    const eventName = `user:${user.id}:notification`;
+    socket.on(eventName, callback);
+    console.log(`👂 Listening to ${eventName}`);
+    
+    return () => {
+      socket.off(eventName, callback);
+      console.log(`🔇 Stopped listening to ${eventName}`);
+    };
+  }, [socket, user]);
+
   return (
-    <SocketContext.Provider value={{ socket, isConnected, joinEvent, leaveEvent }}>
+    <SocketContext.Provider value={{ 
+      socket, 
+      isConnected, 
+      joinEvent, 
+      leaveEvent,
+      onEventUpdated,
+      onEventApproved,
+      onRegistrationUpdated,
+      onUserNotification
+    }}>
       {children}
     </SocketContext.Provider>
   );

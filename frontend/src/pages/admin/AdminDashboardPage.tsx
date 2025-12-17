@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { dashboardService, AdminStats } from '../../services/dashboardService';
 import { StatsOverview, UserManagement, EventApproval } from '../../components/admin';
 import toast from 'react-hot-toast';
+import { useRealtimeEvents } from '../../hooks/useRealtimeUpdates';
 
 type TabType = 'overview' | 'users' | 'events';
 
@@ -30,6 +31,15 @@ export default function AdminDashboardPage() {
   const handleEventStatusChanged = () => {
     loadDashboardData(); // Reload stats để cập nhật số lượng pending
   };
+
+  // Real-time updates for event approvals
+  useRealtimeEvents({
+    onEventApproved: (data) => {
+      console.log('✅ Admin received event approved:', data);
+      // Reload dashboard stats to reflect changes
+      loadDashboardData();
+    }
+  });
 
   const handleExport = async (type: 'events' | 'users', format: 'json' | 'csv') => {
     try {

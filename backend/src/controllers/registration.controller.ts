@@ -276,7 +276,8 @@ export const approveRegistration = async (req: Request, res: Response): Promise<
         event: {
           select: {
             id: true,
-            title: true
+            title: true,
+            managerId: true
           }
         }
       }
@@ -289,6 +290,33 @@ export const approveRegistration = async (req: Request, res: Response): Promise<
       `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã được chấp nhận.`,
       { type: 'registration_approved', eventId: registration.event.id }
     );
+
+    // Emit socket event to volunteer for real-time notification
+    io.emit(`user:${registration.userId}:notification`, {
+      id: registration.id,
+      title: 'Đăng ký được duyệt',
+      message: `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã được chấp nhận.`,
+      type: 'registration_approved',
+      data: { eventId: registration.event.id, registrationId: registration.id }
+    });
+
+    // Emit to volunteer for real-time registration update
+    io.emit(`user:${registration.userId}:registration:updated`, {
+      registration,
+      action: 'approved'
+    });
+
+    // Emit to event room for real-time update
+    io.to(`event-${registration.eventId}`).emit('registration:updated', {
+      registration,
+      action: 'approved'
+    });
+
+    // Emit to manager for real-time update
+    io.emit(`user:${registration.event.managerId}:registration:updated`, {
+      registration,
+      action: 'approved'
+    });
 
     res.json({
       message: 'Registration approved successfully',
@@ -319,7 +347,8 @@ export const rejectRegistration = async (req: Request, res: Response): Promise<v
         event: {
           select: {
             id: true,
-            title: true
+            title: true,
+            managerId: true
           }
         }
       }
@@ -332,6 +361,33 @@ export const rejectRegistration = async (req: Request, res: Response): Promise<v
       `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã bị từ chối.`,
       { type: 'registration_rejected', eventId: registration.event.id }
     );
+
+    // Emit socket event to volunteer for real-time notification
+    io.emit(`user:${registration.userId}:notification`, {
+      id: registration.id,
+      title: 'Đăng ký bị từ chối',
+      message: `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã bị từ chối.`,
+      type: 'registration_rejected',
+      data: { eventId: registration.event.id, registrationId: registration.id }
+    });
+
+    // Emit to volunteer for real-time registration update
+    io.emit(`user:${registration.userId}:registration:updated`, {
+      registration,
+      action: 'rejected'
+    });
+
+    // Emit to event room for real-time update
+    io.to(`event-${registration.eventId}`).emit('registration:updated', {
+      registration,
+      action: 'rejected'
+    });
+
+    // Emit to manager for real-time update
+    io.emit(`user:${registration.event.managerId}:registration:updated`, {
+      registration,
+      action: 'rejected'
+    });
 
     res.json({
       message: 'Registration rejected',
@@ -366,7 +422,8 @@ export const markAsCompleted = async (req: Request, res: Response): Promise<void
         event: {
           select: {
             id: true,
-            title: true
+            title: true,
+            managerId: true
           }
         }
       }
@@ -379,6 +436,33 @@ export const markAsCompleted = async (req: Request, res: Response): Promise<void
       `Chúc mừng! Bạn đã hoàn thành sự kiện "${registration.event.title}".`,
       { type: 'event_completed', eventId: registration.event.id }
     );
+
+    // Emit socket event to volunteer for real-time notification
+    io.emit(`user:${registration.userId}:notification`, {
+      id: registration.id,
+      title: 'Hoàn thành sự kiện',
+      message: `Chúc mừng! Bạn đã hoàn thành sự kiện "${registration.event.title}".`,
+      type: 'event_completed',
+      data: { eventId: registration.event.id, registrationId: registration.id }
+    });
+
+    // Emit to volunteer for real-time registration update
+    io.emit(`user:${registration.userId}:registration:updated`, {
+      registration,
+      action: 'completed'
+    });
+
+    // Emit to event room for real-time update
+    io.to(`event-${registration.eventId}`).emit('registration:updated', {
+      registration,
+      action: 'completed'
+    });
+
+    // Emit to manager for real-time update
+    io.emit(`user:${registration.event.managerId}:registration:updated`, {
+      registration,
+      action: 'completed'
+    });
 
     res.json({
       message: 'Registration marked as completed',

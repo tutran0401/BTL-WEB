@@ -310,7 +310,24 @@ export const approveEvent = async (req: Request, res: Response): Promise<void> =
 
     const event = await prisma.event.update({
       where: { id },
-      data: { status: 'APPROVED' }
+      data: { status: 'APPROVED' },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
+        _count: {
+          select: {
+            registrations: {
+              where: { status: 'APPROVED' }
+            },
+            posts: true
+          }
+        }
+      }
     });
 
     // Send notification to event manager
@@ -330,6 +347,17 @@ export const approveEvent = async (req: Request, res: Response): Promise<void> =
       data: { eventId: event.id }
     });
 
+    // Emit to manager for real-time event list update
+    io.emit(`user:${event.managerId}:event:updated`, {
+      event,
+      action: 'approved'
+    });
+
+    // Emit global event for all users to see new approved event
+    io.emit('event:approved', {
+      event
+    });
+
     res.json({
       message: 'Event approved successfully',
       event
@@ -347,7 +375,24 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
 
     const event = await prisma.event.update({
       where: { id },
-      data: { status: 'REJECTED' }
+      data: { status: 'REJECTED' },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
+        _count: {
+          select: {
+            registrations: {
+              where: { status: 'APPROVED' }
+            },
+            posts: true
+          }
+        }
+      }
     });
 
     // Send notification to event manager
@@ -365,6 +410,12 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
       message: `Sự kiện "${event.title}" của bạn đã bị từ chối.`,
       type: 'event_rejected',
       data: { eventId: event.id }
+    });
+
+    // Emit to manager for real-time event list update
+    io.emit(`user:${event.managerId}:event:updated`, {
+      event,
+      action: 'rejected'
     });
 
     res.json({
