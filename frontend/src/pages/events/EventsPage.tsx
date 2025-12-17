@@ -13,6 +13,7 @@ const categories = [
   { value: 'EDUCATION', label: 'Giáo dục' },
   { value: 'HEALTHCARE', label: 'Y tế' },
   { value: 'DIGITAL_LITERACY', label: 'Tin học' },
+  { value: 'COMMUNITY', label: 'Cộng đồng' },
   { value: 'OTHER', label: 'Khác' },
 ];
 

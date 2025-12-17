@@ -135,10 +135,13 @@ export default function EventDetailPage() {
 
   const getCategoryBadge = (category: string) => {
     const categoryConfig: any = {
-      EDUCATION: { label: 'Giáo dục', class: 'bg-blue-100 text-blue-800' },
-      ENVIRONMENT: { label: 'Môi trường', class: 'bg-green-100 text-green-800' },
-      HEALTH: { label: 'Sức khỏe', class: 'bg-red-100 text-red-800' },
-      COMMUNITY: { label: 'Cộng đồng', class: 'bg-purple-100 text-purple-800' },
+      TREE_PLANTING: { label: 'Trồng cây', class: 'bg-gray-100 text-gray-800' },
+      CLEANING: { label: 'Dọn dẹp', class: 'bg-gray-100 text-gray-800' },
+      CHARITY: { label: 'Từ thiện', class: 'bg-gray-100 text-gray-800' },
+      EDUCATION: { label: 'Giáo dục', class: 'bg-gray-100 text-gray-800' },
+      HEALTHCARE: { label: 'Y tế', class: 'bg-gray-100 text-gray-800' },
+      DIGITAL_LITERACY: { label: 'Tin học', class: 'bg-gray-100 text-gray-800' },
+      COMMUNITY: { label: 'Cộng đồng', class: 'bg-gray-100 text-gray-800' },
       OTHER: { label: 'Khác', class: 'bg-gray-100 text-gray-800' }
     };
     const config = categoryConfig[category] || { label: category, class: 'bg-gray-100 text-gray-800' };
@@ -218,7 +221,6 @@ export default function EventDetailPage() {
               <h1 className="text-4xl font-bold text-gray-900 mb-3">{event.title}</h1>
               <div className="flex gap-3">
                 {getCategoryBadge(event.category)}
-                {getStatusBadge(event.status)}
               </div>
             </div>
           </div>
