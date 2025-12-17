@@ -82,7 +82,7 @@ export const createPost = async (req: Request, res: Response): Promise<void> => 
   try {
     const { eventId } = req.params;
     const userId = req.user?.userId;
-    const { content, imageUrl } = req.body;
+    const { content } = req.body;
 
     // Check if event exists and is approved
     const event = await prisma.event.findUnique({
@@ -97,6 +97,15 @@ export const createPost = async (req: Request, res: Response): Promise<void> => 
     if (event.status !== 'APPROVED') {
       res.status(400).json({ error: 'Cannot post on unapproved event' });
       return;
+    }
+
+    // Handle uploaded images
+    let imageUrl = null;
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      // For now, use only the first image
+      // You can modify to support multiple images
+      const file = req.files[0];
+      imageUrl = `/uploads/${file.filename}`;
     }
 
     // Check if user is registered for event (optional check)

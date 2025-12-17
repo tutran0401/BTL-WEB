@@ -4,6 +4,8 @@ import { postService, Post } from '../../services/postService';
 import { commentService, Comment } from '../../services/commentService';
 import { useAuthStore } from '../../store/authStore';
 import { Button, Loading } from '../common';
+import CreatePostBox from './CreatePostBox';
+import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 
 interface PostListProps {
@@ -14,8 +16,6 @@ export default function PostList({ eventId }: PostListProps) {
   const { user } = useAuthStore();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newPostContent, setNewPostContent] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchPosts();
@@ -33,21 +33,9 @@ export default function PostList({ eventId }: PostListProps) {
     }
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPostContent.trim()) return;
-
-    try {
-      setSubmitting(true);
-      await postService.createPost(eventId, { content: newPostContent });
-      setNewPostContent('');
-      toast.success('Đã đăng bài viết');
-      fetchPosts();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Không thể đăng bài');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleCreatePost = async (content: string, images?: File[]) => {
+    await postService.createPost(eventId, { content }, images);
+    await fetchPosts();
   };
 
   const handleLike = async (postId: string) => {
@@ -89,48 +77,23 @@ export default function PostList({ eventId }: PostListProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Bảng tin sự kiện</h2>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900">Bảng tin sự kiện</h2>
 
-      {/* Create Post Form */}
-      <form onSubmit={handleCreatePost} className="mb-8">
-        <div className="flex gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-600 font-semibold">
-              {user?.fullName?.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="flex-1">
-            <textarea
-              value={newPostContent}
-              onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder="Chia sẻ suy nghĩ của bạn về sự kiện..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-              rows={3}
-            />
-            <div className="mt-2 flex justify-end">
-              <Button
-                type="submit"
-                disabled={!newPostContent.trim() || submitting}
-                loading={submitting}
-                size="sm"
-              >
-                <Send className="w-4 h-4 mr-2" />
-                Đăng bài
-              </Button>
-            </div>
-          </div>
-        </div>
-      </form>
+      {/* Create Post Box - Facebook Style */}
+      <CreatePostBox 
+        onSubmit={handleCreatePost}
+        placeholder="Chia sẻ suy nghĩ của bạn về sự kiện..."
+      />
 
       {/* Posts List */}
       {posts.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">Chưa có bài viết nào. Hãy là người đầu tiên!</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {posts.map((post) => (
             <PostItem
               key={post.id}
@@ -230,25 +193,35 @@ function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: Pos
     return d.toLocaleDateString('vi-VN');
   };
 
+  const getInitials = () => {
+    const names = post.author.fullName.split(' ');
+    if (names.length >= 2) {
+      return names[0][0] + names[names.length - 1][0];
+    }
+    return post.author.fullName[0];
+  };
+
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Post Header */}
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between p-4">
         <div className="flex gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-600 font-semibold">
-              {post.author.fullName.charAt(0).toUpperCase()}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
+            <span className="text-white font-bold text-sm">
+              {getInitials()}
             </span>
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{post.author.fullName}</p>
-            <p className="text-sm text-gray-500">{formatDate(post.createdAt)}</p>
+            <p className="font-semibold text-gray-900 hover:text-blue-600 cursor-pointer">
+              {post.author.fullName}
+            </p>
+            <p className="text-xs text-gray-500">{formatDate(post.createdAt)}</p>
           </div>
         </div>
         {currentUserId === post.author.id && (
           <button
             onClick={() => onDelete(post.id)}
-            className="text-gray-400 hover:text-red-600 transition"
+            className="text-gray-400 hover:text-red-600 transition p-2 hover:bg-gray-100 rounded-full"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -256,31 +229,73 @@ function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: Pos
       </div>
 
       {/* Post Content */}
-      <p className="text-gray-800 mb-4 whitespace-pre-wrap">{post.content}</p>
+      {post.content && (
+        <div className="px-4 pb-3">
+          <p className="text-gray-800 whitespace-pre-wrap">{post.content}</p>
+        </div>
+      )}
+
+      {/* Post Images */}
+      {post.imageUrl && (
+        <div className="w-full">
+          <img
+            src={getImageUrl(post.imageUrl)}
+            alt="Post image"
+            className="w-full max-h-[500px] object-cover cursor-pointer hover:opacity-95 transition"
+            onClick={() => window.open(getImageUrl(post.imageUrl), '_blank')}
+          />
+        </div>
+      )}
+
+      {/* Like/Comment Count Bar */}
+      {(post._count.likes > 0 || post._count.comments > 0) && (
+        <div className="px-4 py-2 flex items-center justify-between text-sm text-gray-500 border-t border-gray-100">
+          <div className="flex items-center gap-1">
+            {post._count.likes > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                  <Heart className="w-3 h-3 text-white fill-current" />
+                </div>
+                <span>{post._count.likes}</span>
+              </div>
+            )}
+          </div>
+          {post._count.comments > 0 && (
+            <button
+              onClick={handleShowComments}
+              className="hover:underline"
+            >
+              {post._count.comments} bình luận
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Post Actions */}
-      <div className="flex items-center gap-6 pt-3 border-t border-gray-100">
+      <div className="flex items-center gap-1 px-2 py-1 border-t border-gray-100">
         <button
           onClick={() => onLike(post.id)}
-          className={`flex items-center gap-2 transition ${
-            post.isLiked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${
+            post.isLiked 
+              ? 'text-red-600 hover:bg-red-50' 
+              : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
-          <span className="text-sm font-medium">{post._count.likes}</span>
+          <span className="text-sm font-medium">Thích</span>
         </button>
         <button
           onClick={handleShowComments}
-          className="flex items-center gap-2 text-gray-600 hover:text-primary-600 transition"
+          className="flex-1 flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
         >
           <MessageCircle className="w-5 h-5" />
-          <span className="text-sm font-medium">{post._count.comments}</span>
+          <span className="text-sm font-medium">Bình luận</span>
         </button>
       </div>
 
       {/* Comments Section */}
       {showComments && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50">
           {loadingComments ? (
             <p className="text-center text-gray-500 py-4">Đang tải bình luận...</p>
           ) : (
@@ -293,7 +308,7 @@ function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: Pos
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Viết bình luận..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                   <Button
                     type="submit"
@@ -301,7 +316,7 @@ function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: Pos
                     loading={submittingComment}
                     size="sm"
                   >
-                    Gửi
+                    <Send className="w-4 h-4" />
                   </Button>
                 </div>
               </form>

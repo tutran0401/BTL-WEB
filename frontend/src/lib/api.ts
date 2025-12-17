@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -10,6 +11,15 @@ export const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Helper function to get full image URL
+export const getImageUrl = (path?: string | null): string => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  return `${BACKEND_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 // Request interceptor - Add auth token
 api.interceptors.request.use(

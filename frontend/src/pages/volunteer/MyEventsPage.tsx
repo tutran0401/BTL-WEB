@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { registrationService, Registration } from '../../services/registrationService';
 import { useNavigate } from 'react-router-dom';
+import { getImageUrl } from '../../lib/api';
 
 export default function MyEventsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -170,7 +171,7 @@ export default function MyEventsPage() {
                 {/* Event Image */}
                 <div className="md:w-1/3">
                   <img
-                    src={registration.event?.imageUrl || 'https://via.placeholder.com/400x300?text=No+Image'}
+                    src={getImageUrl(registration.event?.imageUrl) || 'https://via.placeholder.com/400x300?text=No+Image'}
                     alt={registration.event?.title}
                     className="w-full h-full object-cover cursor-pointer"
                     onClick={() => navigate(`/events/${registration.eventId}`)}

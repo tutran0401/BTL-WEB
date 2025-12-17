@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Post } from '../../services/postService';
 import { postService } from '../../services/postService';
 import { useAuthStore } from '../../store/authStore';
+import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { CommentList } from './index';
 
@@ -102,7 +103,7 @@ export default function PostCard({ post, onPostDeleted, onPostUpdated }: PostCar
       {post.imageUrl && (
         <div className="mb-4">
           <img
-            src={post.imageUrl}
+            src={getImageUrl(post.imageUrl)}
             alt="Post"
             className="w-full rounded-lg max-h-96 object-cover"
           />

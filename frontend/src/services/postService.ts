@@ -44,9 +44,23 @@ export const postService = {
     return response.data;
   },
 
-  // Tạo post mới
-  async createPost(eventId: string, data: CreatePostData): Promise<Post> {
-    const response = await api.post(`/posts/events/${eventId}`, data);
+  // Tạo post mới (với hỗ trợ upload ảnh)
+  async createPost(eventId: string, data: CreatePostData, images?: File[]): Promise<Post> {
+    const formData = new FormData();
+    formData.append('content', data.content);
+
+    // Add images if provided
+    if (images && images.length > 0) {
+      images.forEach((image) => {
+        formData.append('images', image);
+      });
+    }
+
+    const response = await api.post(`/posts/events/${eventId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data.post;
   },
 

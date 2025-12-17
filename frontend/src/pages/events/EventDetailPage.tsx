@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { eventService, Event } from '../../services/eventService';
 import { registrationService, Registration } from '../../services/registrationService';
 import { useAuthStore } from '../../store/authStore';
+import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { PostList } from '../../components/social';
 import { useSocket } from '../../contexts/SocketContext';
@@ -203,7 +204,7 @@ export default function EventDetailPage() {
         {event.imageUrl && (
           <div className="w-full h-96 overflow-hidden">
             <img
-              src={event.imageUrl}
+              src={getImageUrl(event.imageUrl)}
               alt={event.title}
               className="w-full h-full object-cover"
             />

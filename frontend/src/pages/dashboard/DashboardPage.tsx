@@ -5,6 +5,7 @@ import { dashboardService } from '../../services/dashboardService';
 import { eventService, Event } from '../../services/eventService';
 import { Card, Loading } from '../../components/common';
 import { useAuthStore } from '../../store/authStore';
+import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
@@ -126,7 +127,7 @@ export default function DashboardPage() {
                   {event.imageUrl && (
                     <div className="w-full h-48 overflow-hidden rounded-t-lg -mt-6 -mx-6 mb-4">
                       <img
-                        src={event.imageUrl}
+                        src={getImageUrl(event.imageUrl)}
                         alt={event.title}
                         className="w-full h-full object-cover"
                       />

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Users, Check, X, Eye } from 'lucide-react';
 import { eventService, Event } from '../../services/eventService';
 import { Button, Card, Loading, Modal } from '../common';
+import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 
 interface EventApprovalProps {
@@ -278,7 +279,7 @@ export default function EventApproval({ onEventStatusChanged }: EventApprovalPro
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Hình ảnh</label>
                 <img
-                  src={selectedEvent.imageUrl}
+                  src={getImageUrl(selectedEvent.imageUrl)}
                   alt={selectedEvent.title}
                   className="w-full h-64 object-cover rounded-lg"
                 />

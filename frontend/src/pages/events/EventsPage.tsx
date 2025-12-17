@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Users, Search, Filter } from 'lucide-react';
 import { eventService, Event } from '../../services/eventService';
+import { getImageUrl } from '../../lib/api';
 import toast from 'react-hot-toast';
 
 const categories = [
@@ -215,7 +216,7 @@ export default function EventsPage() {
                 <div className="h-48 overflow-hidden bg-gray-200">
                   {event.imageUrl ? (
                     <img
-                      src={event.imageUrl}
+                      src={getImageUrl(event.imageUrl)}
                       alt={event.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
