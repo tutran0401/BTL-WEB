@@ -18,16 +18,23 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
 
     const where: any = {};
 
-    // Nếu user là admin và có filter status thì dùng filter đó
-    // Ngược lại, chỉ show events đã approve cho public
+    // Logic phân quyền xem events
     if (req.user?.role === 'ADMIN') {
       // Admin có thể filter theo status bất kỳ
       if (status) {
         where.status = status;
       }
       // Nếu không có filter status, admin sẽ thấy tất cả
+    } else if (req.user?.role === 'EVENT_MANAGER') {
+      // Event Manager có thể xem TẤT CẢ events của chính họ (PENDING, APPROVED, REJECTED)
+      // và các events APPROVED của người khác
+      if (status) {
+        // Nếu có filter status, áp dụng filter đó
+        where.status = status;
+      }
+      // Không filter status ở đây, sẽ filter sau khi query
     } else {
-      // Non-admin chỉ thấy events đã approve (bao gồm cả đã kết thúc để xem posts/comments)
+      // Volunteer hoặc không đăng nhập chỉ thấy events đã approve
       where.status = 'APPROVED';
     }
 
@@ -48,32 +55,72 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
 
-    const [events, total] = await Promise.all([
-      prisma.event.findMany({
-        where,
-        include: {
-          manager: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true
+    let events, total;
+
+    if (req.user?.role === 'EVENT_MANAGER' && !status) {
+      // Event Manager xem tất cả events của họ + events APPROVED của người khác
+      const [allEvents, count] = await Promise.all([
+        prisma.event.findMany({
+          where,
+          include: {
+            manager: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true
+              }
+            },
+            _count: {
+              select: {
+                registrations: {
+                  where: { status: 'APPROVED' }
+                },
+                posts: true
+              }
             }
           },
-          _count: {
-            select: {
-              registrations: {
-                where: { status: 'APPROVED' }
-              },
-              posts: true
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.event.count({ where })
+      ]);
+
+      // Filter: (events của họ) HOẶC (events APPROVED)
+      const filteredEvents = allEvents.filter(event => 
+        event.managerId === req.user?.userId || event.status === 'APPROVED'
+      );
+
+      // Áp dụng pagination cho kết quả đã filter
+      events = filteredEvents.slice(skip, skip + take);
+      total = filteredEvents.length;
+    } else {
+      // Admin hoặc Volunteer: query bình thường
+      [events, total] = await Promise.all([
+        prisma.event.findMany({
+          where,
+          include: {
+            manager: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true
+              }
+            },
+            _count: {
+              select: {
+                registrations: {
+                  where: { status: 'APPROVED' }
+                },
+                posts: true
+              }
             }
-          }
-        },
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.event.count({ where })
-    ]);
+          },
+          skip,
+          take,
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.event.count({ where })
+      ]);
+    }
 
     res.json({
       events,
