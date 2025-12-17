@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Heart, Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useState } from 'react';
@@ -8,7 +8,31 @@ import NotificationDropdown from './NotificationDropdown';
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Helper function to check if current path is active
+  const isActivePath = (path: string) => {
+    return location.pathname === path;
+  };
+
+  // Get active link classes
+  const getLinkClasses = (path: string) => {
+    const baseClasses = "transition font-medium";
+    const activeClasses = "text-primary-600 border-b-2 border-primary-600 pb-1";
+    const inactiveClasses = "text-gray-700 hover:text-primary-600";
+    
+    return `${baseClasses} ${isActivePath(path) ? activeClasses : inactiveClasses}`;
+  };
+
+  // Get mobile link classes
+  const getMobileLinkClasses = (path: string) => {
+    const baseClasses = "transition font-medium py-2 px-3 rounded-lg";
+    const activeClasses = "bg-primary-50 text-primary-600";
+    const inactiveClasses = "text-gray-700 hover:bg-gray-50 hover:text-primary-600";
+    
+    return `${baseClasses} ${isActivePath(path) ? activeClasses : inactiveClasses}`;
+  };
 
   const handleLogout = () => {
     logout();
@@ -27,30 +51,30 @@ return (
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-6">
-          <Link to="/events" className="text-gray-700 hover:text-primary-600 transition">
+          <Link to="/events" className={getLinkClasses('/events')}>
             Sự kiện
           </Link>
 
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="text-gray-700 hover:text-primary-600 transition">
+              <Link to="/dashboard" className={getLinkClasses('/dashboard')}>
                 Dashboard
               </Link>
 
               {user?.role === 'VOLUNTEER' && (
-                <Link to="/my-events" className="text-gray-700 hover:text-primary-600 transition">
+                <Link to="/my-events" className={getLinkClasses('/my-events')}>
                   Sự kiện của tôi
                 </Link>
               )}
 
               {(user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN') && (
-                <Link to="/manage-events" className="text-gray-700 hover:text-primary-600 transition">
+                <Link to="/manage-events" className={getLinkClasses('/manage-events')}>
                   Quản lý sự kiện
                 </Link>
               )}
 
               {user?.role === 'ADMIN' && (
-                <Link to="/admin" className="text-gray-700 hover:text-primary-600 transition">
+                <Link to="/admin" className={getLinkClasses('/admin')}>
                   Admin
                 </Link>
               )}
@@ -115,10 +139,10 @@ return (
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden py-4 border-t">
-          <div className="flex flex-col space-y-3">
+          <div className="flex flex-col space-y-2">
             <Link
               to="/events"
-              className="text-gray-700 hover:text-primary-600 transition"
+              className={getMobileLinkClasses('/events')}
               onClick={() => setMobileMenuOpen(false)}
             >
               Sự kiện
@@ -128,14 +152,45 @@ return (
               <>
                 <Link
                   to="/dashboard"
-                  className="text-gray-700 hover:text-primary-600 transition"
+                  className={getMobileLinkClasses('/dashboard')}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
+
+                {user?.role === 'VOLUNTEER' && (
+                  <Link
+                    to="/my-events"
+                    className={getMobileLinkClasses('/my-events')}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Sự kiện của tôi
+                  </Link>
+                )}
+
+                {(user?.role === 'EVENT_MANAGER' || user?.role === 'ADMIN') && (
+                  <Link
+                    to="/manage-events"
+                    className={getMobileLinkClasses('/manage-events')}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Quản lý sự kiện
+                  </Link>
+                )}
+
+                {user?.role === 'ADMIN' && (
+                  <Link
+                    to="/admin"
+                    className={getMobileLinkClasses('/admin')}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Admin
+                  </Link>
+                )}
+
                 <Link
                   to="/profile"
-                  className="text-gray-700 hover:text-primary-600 transition"
+                  className={getMobileLinkClasses('/profile')}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Hồ sơ

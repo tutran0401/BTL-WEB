@@ -104,7 +104,10 @@ export default function NotificationDropdown() {
         }
 
         // Navigate based on notification type
-        if (notification.data?.eventId) {
+        if (notification.type === 'new_registration' && user?.role === 'EVENT_MANAGER') {
+            // Nếu là thông báo đăng ký mới và user là manager, chuyển đến trang quản lý sự kiện
+            navigate('/manage-events');
+        } else if (notification.data?.eventId) {
             navigate(`/events/${notification.data.eventId}`);
         } else if (notification.data?.url) {
             navigate(notification.data.url);
