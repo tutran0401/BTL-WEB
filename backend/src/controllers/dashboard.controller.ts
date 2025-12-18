@@ -1,5 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
+import {
+  getEventWhereClause,
+  prioritizeEventsByRole,
+  getRecentActivityMetrics,
+  calculateTrendingScore,
+  generateGrowthIndicator,
+  getRecentDiscussionStats
+} from '../utils/dashboardHelpers';
 
 // GET /api/dashboard
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
@@ -7,138 +15,170 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     const userId = req.user?.userId;
     const userRole = req.user?.role;
 
-    // Sự kiện mới công bố (approved events)
-    const newEvents = await prisma.event.findMany({
-      where: { 
-        status: 'APPROVED'
-      },
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        manager: {
-          select: {
-            id: true,
-            fullName: true
-          }
-        },
-        _count: {
-          select: {
-            registrations: {
-              where: { status: 'APPROVED' }
-            },
-            posts: true
-          }
-        }
-      }
-    });
-
-    // Sự kiện có tin bài mới (events with recent posts)
-    const eventsWithRecentPosts = await prisma.event.findMany({
-      where: {
-        status: 'APPROVED',
-        posts: {
-          some: {
-            createdAt: {
-              gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-            }
-          }
-        }
-      },
-      take: 5,
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        _count: {
-          select: {
-            registrations: {
-              where: { status: 'APPROVED' }
-            },
-            posts: true
-          }
-        }
-      }
-    });
-
-    // Sự kiện thu hút (events with most activity)
-    const trendingEvents = await prisma.event.findMany({
-      where: { 
-        status: 'APPROVED'
-      },
-      take: 5,
-      include: {
-        _count: {
-          select: {
-            registrations: {
-              where: {
-                status: 'APPROVED',
-                createdAt: {
-                  gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-                }
-              }
-            },
-            posts: {
-              where: {
-                createdAt: {
-                  gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    // Sort by activity
-    const sortedTrendingEvents = trendingEvents.sort((a, b) => {
-      const activityA = a._count.registrations + a._count.posts;
-      const activityB = b._count.registrations + b._count.posts;
-      return activityB - activityA;
-    });
-
-    // User-specific data
-    let userStats: any = null;
-
-    if (userRole === 'VOLUNTEER') {
-      userStats = {
-        totalRegistrations: await prisma.registration.count({
-          where: { userId }
-        }),
-        completedEvents: await prisma.registration.count({
-          where: { userId, status: 'COMPLETED' }
-        }),
-        upcomingEvents: await prisma.registration.count({
-          where: {
-            userId,
-            status: 'APPROVED',
-            event: {
-              startDate: { gte: new Date() }
-            }
-          }
-        })
-      };
-    } else if (userRole === 'EVENT_MANAGER') {
-      userStats = {
-        totalEvents: await prisma.event.count({
-          where: { managerId: userId }
-        }),
-        approvedEvents: await prisma.event.count({
-          where: { managerId: userId, status: 'APPROVED' }
-        }),
-        pendingEvents: await prisma.event.count({
-          where: { managerId: userId, status: 'PENDING' }
-        }),
-        totalParticipants: await prisma.registration.count({
-          where: {
-            event: { managerId: userId },
-            status: 'APPROVED'
-          }
-        })
-      };
+    if (!userId || !userRole) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
+    // Build base where clause based on role
+    const baseWhere = getEventWhereClause(userId, userRole);
+
+    // Include registrations for volunteer prioritization
+    const includeRegistrations = userRole === 'VOLUNTEER' ? {
+      registrations: {
+        where: { userId, status: 'APPROVED' as const },
+        select: { userId: true }
+      }
+    } : {};
+
+    // Execute all queries in parallel for better performance
+    const [
+      allNewEvents,
+      allActiveEvents,
+      allTrendingCandidates,
+      userStats
+    ] = await Promise.all([
+      // 1. NEW EVENTS - Sự kiện mới công bố
+      prisma.event.findMany({
+        where: {
+          ...baseWhere,
+          // Only events approved in last 30 days
+          createdAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          }
+        },
+        take: 20, // Get more for prioritization
+        orderBy: { createdAt: 'desc' },
+        include: {
+          manager: {
+            select: {
+              id: true,
+              fullName: true
+            }
+          },
+          ...includeRegistrations,
+          _count: {
+            select: {
+              registrations: {
+                where: { status: 'APPROVED' }
+              },
+              posts: true
+            }
+          }
+        }
+      }),
+
+      // 2. ACTIVE EVENTS - Sự kiện có tin bài/trao đổi mới
+      prisma.event.findMany({
+        where: {
+          ...baseWhere,
+          posts: {
+            some: {
+              createdAt: {
+                gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+              }
+            }
+          }
+        },
+        take: 20, // Get more for prioritization
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          manager: {
+            select: {
+              id: true,
+              fullName: true
+            }
+          },
+          ...includeRegistrations,
+          _count: {
+            select: {
+              registrations: {
+                where: { status: 'APPROVED' }
+              },
+              posts: {
+                where: {
+                  createdAt: {
+                    gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }),
+
+      // 3. TRENDING CANDIDATES - Get all approved events for trending calculation
+      prisma.event.findMany({
+        where: baseWhere,
+        take: 50, // Get larger pool for trending calculation
+        include: {
+          manager: {
+            select: {
+              id: true,
+              fullName: true
+            }
+          },
+          ...includeRegistrations,
+          _count: {
+            select: {
+              registrations: {
+                where: { status: 'APPROVED' }
+              },
+              posts: true
+            }
+          }
+        }
+      }),
+
+      // 4. USER STATS
+      getUserStats(userId, userRole)
+    ]);
+
+    // PRIORITIZE by role
+    const newEvents = prioritizeEventsByRole(allNewEvents, userId, userRole).slice(0, 5);
+    const activeEvents = prioritizeEventsByRole(allActiveEvents, userId, userRole).slice(0, 5);
+
+    // CALCULATE TRENDING SCORES
+    const trendingWithScores = await Promise.all(
+      allTrendingCandidates.map(async (event) => {
+        const metrics = await getRecentActivityMetrics(event.id, 7);
+        const score = calculateTrendingScore(metrics);
+        const growthIndicator = generateGrowthIndicator(metrics, 7);
+
+        return {
+          ...event,
+          trendingScore: score,
+          growthIndicator,
+          recentMetrics: metrics
+        };
+      })
+    );
+
+    // Sort by trending score and take top 20 for prioritization
+    const topTrending = trendingWithScores
+      .filter(e => e.trendingScore > 0) // Only events with activity
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .slice(0, 20);
+
+    // Prioritize trending events by role
+    const trendingEvents = prioritizeEventsByRole(topTrending, userId, userRole).slice(0, 5);
+
+    // ADD DISCUSSION STATS to active events
+    const activeEventsWithStats = await Promise.all(
+      activeEvents.map(async (event) => {
+        const discussionStats = await getRecentDiscussionStats(event.id);
+        return {
+          ...event,
+          discussionStats
+        };
+      })
+    );
+
+    // Response
     res.json({
       newEvents,
-      eventsWithRecentPosts,
-      trendingEvents: sortedTrendingEvents,
+      activeEvents: activeEventsWithStats,
+      trendingEvents,
       userStats
     });
   } catch (error) {
@@ -146,6 +186,86 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// Helper function to get user-specific statistics
+async function getUserStats(userId: string, userRole: string) {
+  if (userRole === 'VOLUNTEER') {
+    const [totalRegistrations, completedEvents, upcomingEvents, totalHours] = await Promise.all([
+      prisma.registration.count({
+        where: { userId }
+      }),
+      prisma.registration.count({
+        where: { userId, status: 'COMPLETED' }
+      }),
+      prisma.registration.count({
+        where: {
+          userId,
+          status: 'APPROVED',
+          event: {
+            startDate: { gte: new Date() }
+          }
+        }
+      }),
+      // Calculate total volunteer hours (completed events)
+      prisma.registration.count({
+        where: { userId, isCompleted: true }
+      })
+    ]);
+
+    return {
+      totalRegistrations,
+      completedEvents,
+      upcomingEvents,
+      totalHours: totalHours * 4 // Assume 4 hours per event
+    };
+  }
+
+  if (userRole === 'EVENT_MANAGER') {
+    const [totalEvents, approvedEvents, pendingEvents, totalParticipants] = await Promise.all([
+      prisma.event.count({
+        where: { managerId: userId }
+      }),
+      prisma.event.count({
+        where: { managerId: userId, status: 'APPROVED' }
+      }),
+      prisma.event.count({
+        where: { managerId: userId, status: 'PENDING' }
+      }),
+      prisma.registration.count({
+        where: {
+          event: { managerId: userId },
+          status: 'APPROVED'
+        }
+      })
+    ]);
+
+    return {
+      totalEvents,
+      approvedEvents,
+      pendingEvents,
+      totalParticipants
+    };
+  }
+
+  // ADMIN stats
+  if (userRole === 'ADMIN') {
+    const [totalUsers, totalEvents, totalRegistrations, pendingEvents] = await Promise.all([
+      prisma.user.count(),
+      prisma.event.count(),
+      prisma.registration.count(),
+      prisma.event.count({ where: { status: 'PENDING' } })
+    ]);
+
+    return {
+      totalUsers,
+      totalEvents,
+      totalRegistrations,
+      pendingEvents
+    };
+  }
+
+  return null;
+}
 
 // GET /api/dashboard/admin
 export const getAdminDashboard = async (req: Request, res: Response): Promise<void> => {
@@ -168,20 +288,20 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
       prisma.event.count({ where: { status: 'PENDING' } }),
       prisma.event.count({ where: { status: 'APPROVED' } }),
       prisma.event.count({ where: { status: 'COMPLETED' } }),
-      
+
       // Users by role
       prisma.user.groupBy({
         by: ['role'],
         _count: true
       }),
-      
+
       // Events by category
       prisma.event.groupBy({
         by: ['category'],
         _count: true,
         where: { status: 'APPROVED' }
       }),
-      
+
       // Recent users
       prisma.user.findMany({
         take: 5,
@@ -195,7 +315,7 @@ export const getAdminDashboard = async (req: Request, res: Response): Promise<vo
           createdAt: true
         }
       }),
-      
+
       // Recent events
       prisma.event.findMany({
         take: 5,
@@ -258,7 +378,7 @@ export const exportEvents = async (req: Request, res: Response, next: NextFuncti
         const year = d.getFullYear();
         return `"${day}/${month}/${year}"`;
       };
-      
+
       const csvRows = [
         ['ID', 'Tiêu đề', 'Mô tả', 'Địa điểm', 'Ngày bắt đầu', 'Ngày kết thúc', 'Danh mục', 'Trạng thái', 'Người quản lý', 'Số người đăng ký'].join(','),
         ...events.map(e => [
@@ -274,10 +394,10 @@ export const exportEvents = async (req: Request, res: Response, next: NextFuncti
           e._count.registrations,
         ].join(','))
       ];
-      
+
       const csv = csvRows.join('\n');
       const bom = '\uFEFF'; // UTF-8 BOM
-      
+
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="events.csv"');
       res.send(bom + csv);
@@ -314,7 +434,7 @@ export const exportUsers = async (req: Request, res: Response, next: NextFunctio
         const year = d.getFullYear();
         return `"${day}/${month}/${year}"`;
       };
-      
+
       const csvRows = [
         ['ID', 'Email', 'Họ tên', 'Số điện thoại', 'Vai trò', 'Trạng thái', 'Ngày tạo'].join(','),
         ...users.map(u => [
@@ -327,10 +447,10 @@ export const exportUsers = async (req: Request, res: Response, next: NextFunctio
           formatDate(u.createdAt),
         ].join(','))
       ];
-      
+
       const csv = csvRows.join('\n');
       const bom = '\uFEFF'; // UTF-8 BOM
-      
+
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
       res.send(bom + csv);

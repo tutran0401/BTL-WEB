@@ -98,6 +98,10 @@ model Event {
   registrations Registration[]
   posts         Post[]
 
+  // Indexes for dashboard performance
+  @@index([status, createdAt(sort: Desc)])
+  @@index([status, updatedAt(sort: Desc)])
+  @@index([managerId, status])
   @@map("events")
 }
 
@@ -118,6 +122,10 @@ model Registration {
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([userId, eventId])
+  // Indexes for dashboard performance
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@index([eventId, status])
   @@map("registrations")
 }
 
@@ -137,6 +145,9 @@ model Post {
   comments Comment[]
   likes    Like[]
 
+  // Indexes for dashboard performance
+  @@index([eventId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
   @@map("posts")
 }
 
@@ -153,6 +164,9 @@ model Comment {
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
+  // Indexes for dashboard performance
+  @@index([postId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
   @@map("comments")
 }
 
@@ -168,6 +182,9 @@ model Like {
   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+  // Indexes for dashboard performance
+  @@index([postId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
   @@map("likes")
 }
 
