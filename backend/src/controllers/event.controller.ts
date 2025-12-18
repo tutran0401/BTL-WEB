@@ -155,7 +155,7 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
         _count: {
           select: {
             registrations: {
-              where: { status: 'APPROVED' }
+              where: { status: { in: ['APPROVED', 'COMPLETED'] } }
             },
             posts: true
           }
