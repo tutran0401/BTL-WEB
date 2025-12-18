@@ -6,7 +6,9 @@ import {
   getRecentActivityMetrics,
   calculateTrendingScore,
   generateGrowthIndicator,
-  getRecentDiscussionStats
+  getRecentDiscussionStats,
+  getActivityMetricsForMultipleEvents,
+  getDiscussionStatsForMultipleEvents
 } from '../utils/dashboardHelpers';
 
 // GET /api/dashboard
@@ -138,21 +140,28 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     const newEvents = prioritizeEventsByRole(allNewEvents, userId, userRole).slice(0, 5);
     const activeEvents = prioritizeEventsByRole(allActiveEvents, userId, userRole).slice(0, 5);
 
-    // CALCULATE TRENDING SCORES
-    const trendingWithScores = await Promise.all(
-      allTrendingCandidates.map(async (event) => {
-        const metrics = await getRecentActivityMetrics(event.id, 7);
-        const score = calculateTrendingScore(metrics);
-        const growthIndicator = generateGrowthIndicator(metrics, 7);
+    // OPTIMIZED: Calculate trending scores using batch function
+    const trendingEventIds = allTrendingCandidates.map(e => e.id);
+    const metricsMap = await getActivityMetricsForMultipleEvents(trendingEventIds, 7);
 
-        return {
-          ...event,
-          trendingScore: score,
-          growthIndicator,
-          recentMetrics: metrics
-        };
-      })
-    );
+    const trendingWithScores = allTrendingCandidates.map((event) => {
+      const metrics = metricsMap.get(event.id) || {
+        newRegistrations: 0,
+        newPosts: 0,
+        newComments: 0,
+        newLikes: 0,
+        totalActivity: 0
+      };
+      const score = calculateTrendingScore(metrics);
+      const growthIndicator = generateGrowthIndicator(metrics, 7);
+
+      return {
+        ...event,
+        trendingScore: score,
+        growthIndicator,
+        recentMetrics: metrics
+      };
+    });
 
     // Sort by trending score and take top 20 for prioritization
     const topTrending = trendingWithScores
@@ -163,16 +172,21 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     // Prioritize trending events by role
     const trendingEvents = prioritizeEventsByRole(topTrending, userId, userRole).slice(0, 5);
 
-    // ADD DISCUSSION STATS to active events
-    const activeEventsWithStats = await Promise.all(
-      activeEvents.map(async (event) => {
-        const discussionStats = await getRecentDiscussionStats(event.id);
-        return {
-          ...event,
-          discussionStats
-        };
-      })
-    );
+    // OPTIMIZED: Add discussion stats using batch function
+    const activeEventIds = activeEvents.map(e => e.id);
+    const discussionStatsMap = await getDiscussionStatsForMultipleEvents(activeEventIds);
+
+    const activeEventsWithStats = activeEvents.map((event) => {
+      const discussionStats = discussionStatsMap.get(event.id) || {
+        newPosts: 0,
+        newComments: 0,
+        lastActivityAt: null
+      };
+      return {
+        ...event,
+        discussionStats
+      };
+    });
 
     // Response
     res.json({

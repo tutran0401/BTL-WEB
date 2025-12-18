@@ -87,16 +87,16 @@ export default function TrendingEventsSection({ events, loading = false }: Trend
                         </div>
                     </div>
 
-                    {/* 1st Place (Highlighted) */}
+                    {/* 1st Place (Highlighted) - GOLD MEDAL */}
                     <div className="md:order-2 order-1">
                         <div className="relative">
                             <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-10">
-                                <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full shadow-xl border-4 border-white">
+                                <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-yellow-200 via-yellow-300 to-yellow-400 text-white rounded-full shadow-xl border-4 border-white">
                                     <Award className="w-8 h-8" />
                                 </div>
                             </div>
                             <div className="pt-10 transform md:scale-105">
-                                <div className="ring-2 ring-orange-300 ring-offset-2 rounded-xl">
+                                <div className="ring-2 ring-yellow-300 rounded-lg shadow-lg overflow-hidden">
                                     <EventCard event={topThree[0]} variant="trending" />
                                 </div>
                             </div>
@@ -126,7 +126,7 @@ export default function TrendingEventsSection({ events, loading = false }: Trend
                         <div key={event.id} className="relative">
                             {index === 0 && (
                                 <div className="absolute -top-3 -right-3 z-10">
-                                    <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full shadow-lg">
+                                    <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 text-white rounded-full shadow-lg">
                                         <span className="font-bold text-sm">#{index + 1}</span>
                                     </div>
                                 </div>
@@ -134,25 +134,12 @@ export default function TrendingEventsSection({ events, loading = false }: Trend
                             <EventCard event={event} variant="trending" />
                         </div>
                     ))}
-                    {remaining.map((event, index) => (
+                    {remaining.map((event) => (
                         <EventCard key={event.id} event={event} variant="trending" />
                     ))}
+
                 </div>
             )}
-
-            {/* Stats Banner */}
-            <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                    <TrendingUp className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <h4 className="font-semibold text-orange-900 mb-1">Cách tính điểm trending</h4>
-                        <p className="text-orange-700 text-sm">
-                            Dựa trên số lượng người tham gia, bài viết, bình luận và lượt thích tăng trong 7 ngày gần nhất.
-                            Sự kiện có điểm cao nhất sẽ xuất hiện ở vị trí đầu tiên!
-                        </p>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

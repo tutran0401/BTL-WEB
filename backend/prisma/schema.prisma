@@ -126,6 +126,8 @@ model Registration {
   @@index([status, createdAt(sort: Desc)])
   @@index([userId, status])
   @@index([eventId, status])
+  // New optimized index for batch queries
+  @@index([eventId, createdAt(sort: Desc), status])
   @@map("registrations")
 }
 
@@ -148,6 +150,8 @@ model Post {
   // Indexes for dashboard performance
   @@index([eventId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
+  // New optimized index for batch queries with JOIN
+  @@index([createdAt(sort: Desc), eventId])
   @@map("posts")
 }
 

@@ -72,19 +72,6 @@ export default function ActiveEventsSection({ events, loading = false }: ActiveE
                     <EventCard key={event.id} event={event} variant="active" />
                 ))}
             </div>
-
-            {/* Info Banner */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                    <MessageCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <h4 className="font-semibold text-green-900 mb-1">Tham gia thảo luận</h4>
-                        <p className="text-green-700 text-sm">
-                            Click vào sự kiện để xem các bài viết và bình luận mới nhất, cùng chia sẻ ý kiến của bạn!
-                        </p>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

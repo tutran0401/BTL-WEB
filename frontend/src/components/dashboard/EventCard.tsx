@@ -51,7 +51,6 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
 
     const renderVariantBadge = () => {
         if (variant === 'trending') {
-            const trendingEvent = event as TrendingEvent;
             return (
                 <div className="absolute top-3 right-3 z-10">
                     <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full text-xs font-semibold shadow-lg">
@@ -68,7 +67,7 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
             if (hasNewActivity) {
                 return (
                     <div className="absolute top-3 right-3 z-10">
-                        <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-semibold shadow-lg animate-pulse">
+                        <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-semibold shadow-lg">
                             <MessageCircle className="w-3.5 h-3.5" />
                             <span>Đang sôi nổi</span>
                         </div>
@@ -149,25 +148,29 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
 
     return (
         <Link to={`/events/${event.id}`} className="block group h-full">
-            <Card hover className="h-full overflow-hidden transition-all duration-300 group-hover:shadow-xl relative">
+            <Card hover padding="none" className="h-full flex flex-col overflow-hidden transition-all duration-300 group-hover:shadow-xl relative">
                 {renderVariantBadge()}
 
-                {/* Image */}
-                {event.imageUrl && (
-                    <div className="w-full h-48 overflow-hidden -mt-6 -mx-6 mb-4 relative">
+                {/* Image - Fixed size container */}
+                <div className="w-full h-48 overflow-hidden bg-gray-200 flex-shrink-0">
+                    {event.imageUrl ? (
                         <img
                             src={getImageUrl(event.imageUrl)}
                             alt={event.title}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    </div>
-                )}
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Calendar className="w-16 h-16" />
+                        </div>
+                    )}
 
-                {/* Content */}
-                <div className="space-y-3">
+                </div>
+
+                {/* Content - Flex grow to fill remaining space */}
+                <div className="flex-1 flex flex-col space-y-3 p-4">
                     {/* Category */}
-                    <span className={`inline-block px-3 py-1 ${getCategoryColor(event.category)} text-xs font-semibold rounded-full`}>
+                    <span className={`inline-block self-start px-3 py-1 ${getCategoryColor(event.category)} text-xs font-semibold rounded-full`}>
                         {getCategoryLabel(event.category)}
                     </span>
 
@@ -176,12 +179,10 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
                         {event.title}
                     </h3>
 
-                    {/* Description */}
-                    {!compact && (
-                        <p className="text-gray-600 text-sm line-clamp-2">
-                            {event.description}
-                        </p>
-                    )}
+                    {/* Description - Always show, clamp to 2 lines */}
+                    <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
+                        {event.description}
+                    </p>
 
                     {/* Growth Indicator (Trending only) */}
                     {renderGrowthIndicator()}

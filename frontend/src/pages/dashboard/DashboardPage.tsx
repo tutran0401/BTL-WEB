@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Calendar, Users, CheckCircle, Clock, BarChart3, Award } from 'lucide-react';
 import { dashboardService, DashboardResponse, VolunteerStats, ManagerStats, AdminDashboardStats } from '../../services/dashboardService';
 import { Loading } from '../../components/common';
 import { useAuthStore } from '../../store/authStore';
+import { useSocket } from '../../contexts/SocketContext';
+import { debounce } from '../../utils/debounce';
 import toast from 'react-hot-toast';
 import NewEventsSection from '../../components/dashboard/NewEventsSection';
 import ActiveEventsSection from '../../components/dashboard/ActiveEventsSection';
@@ -11,14 +13,11 @@ import StatsCard from '../../components/dashboard/StatsCard';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const { socket, isConnected } = useSocket();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardResponse | null>(null);
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
       const response = await dashboardService.getDashboard();
@@ -29,7 +28,48 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
+
+  // Debounced refresh function (2 seconds delay)
+  const debouncedRefresh = useMemo(
+    () => debounce(() => {
+      console.log('📊 Dashboard update triggered - refreshing data...');
+      fetchDashboard();
+    }, 2000),
+    [fetchDashboard]
+  );
+
+  // Real-time updates via WebSocket with debouncing
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    // Subscribe to relevant events (all trigger debounced refresh)
+    socket.on('post:created', debouncedRefresh);
+    socket.on('post:updated', debouncedRefresh);
+    socket.on('comment:created', debouncedRefresh);
+    socket.on('like:created', debouncedRefresh);
+    socket.on('like:removed', debouncedRefresh);
+    socket.on('registration:created', debouncedRefresh);
+    socket.on('registration:approved', debouncedRefresh);
+    socket.on('event:approved', debouncedRefresh);
+
+    // Cleanup listeners on unmount
+    return () => {
+      socket.off('post:created', debouncedRefresh);
+      socket.off('post:updated', debouncedRefresh);
+      socket.off('comment:created', debouncedRefresh);
+      socket.off('like:created', debouncedRefresh);
+      socket.off('like:removed', debouncedRefresh);
+      socket.off('registration:created', debouncedRefresh);
+      socket.off('registration:approved', debouncedRefresh);
+      socket.off('event:approved', debouncedRefresh);
+    };
+  }, [socket, isConnected, debouncedRefresh]);
 
   const renderStatsCards = () => {
     if (!data?.userStats) return null;
@@ -183,6 +223,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Trending Events Section - NOW FIRST! */}
+        <TrendingEventsSection events={data.trendingEvents} loading={loading} />
+
         {/* New Events Section */}
         <NewEventsSection events={data.newEvents} loading={loading} />
 
@@ -191,22 +234,6 @@ export default function DashboardPage() {
 
         {/* Active Events Section */}
         <ActiveEventsSection events={data.activeEvents} loading={loading} />
-
-        {/* Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-
-        {/* Trending Events Section */}
-        <TrendingEventsSection events={data.trendingEvents} loading={loading} />
-
-        {/* Footer Info */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl p-6 text-center">
-          <p className="text-gray-700">
-            Dashboard được cập nhật theo thời gian thực. Dữ liệu được tổng hợp dựa trên hoạt động của bạn và cộng đồng.
-          </p>
-          <p className="text-gray-500 text-sm mt-2">
-            Lần cập nhật cuối: {new Date().toLocaleString('vi-VN')}
-          </p>
-        </div>
       </div>
     </div>
   );

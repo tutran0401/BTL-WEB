@@ -14,7 +14,7 @@ export default function EventDetailPage() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const { joinEvent, leaveEvent } = useSocket();
-  
+
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
@@ -41,14 +41,14 @@ export default function EventDetailPage() {
         registrationUserId: data?.registration?.userId,
         registrationEventId: data?.registration?.eventId,
       });
-      
+
       const { registration, action } = data;
 
       // If this is MY registration, update my registration status
       if (registration.userId === user?.id && registration.eventId === id) {
         console.log('✅ This is MY registration! Updating...');
         setMyRegistration(registration);
-        
+
         // Show toast notification based on action
         if (action === 'approved') {
           toast.success('🎉 Đăng ký của bạn đã được duyệt!', { duration: 5000 });
@@ -178,14 +178,14 @@ export default function EventDetailPage() {
 
   const getCategoryBadge = (category: string) => {
     const categoryConfig: any = {
-      TREE_PLANTING: { label: 'Trồng cây', class: 'bg-gray-100 text-gray-800' },
-      CLEANING: { label: 'Dọn dẹp', class: 'bg-gray-100 text-gray-800' },
-      CHARITY: { label: 'Từ thiện', class: 'bg-gray-100 text-gray-800' },
-      EDUCATION: { label: 'Giáo dục', class: 'bg-gray-100 text-gray-800' },
-      HEALTHCARE: { label: 'Y tế', class: 'bg-gray-100 text-gray-800' },
-      DIGITAL_LITERACY: { label: 'Tin học', class: 'bg-gray-100 text-gray-800' },
-      COMMUNITY: { label: 'Cộng đồng', class: 'bg-gray-100 text-gray-800' },
-      OTHER: { label: 'Khác', class: 'bg-gray-100 text-gray-800' }
+      TREE_PLANTING: { label: 'Trồng cây', class: 'bg-green-100 text-green-700' },
+      CLEANING: { label: 'Dọn dẹp', class: 'bg-blue-100 text-blue-700' },
+      CHARITY: { label: 'Từ thiện', class: 'bg-pink-100 text-pink-700' },
+      EDUCATION: { label: 'Giáo dục', class: 'bg-purple-100 text-purple-700' },
+      HEALTHCARE: { label: 'Y tế', class: 'bg-red-100 text-red-700' },
+      DIGITAL_LITERACY: { label: 'Tin học', class: 'bg-indigo-100 text-indigo-700' },
+      COMMUNITY: { label: 'Cộng đồng', class: 'bg-yellow-100 text-yellow-700' },
+      OTHER: { label: 'Khác', class: 'bg-gray-100 text-gray-700' }
     };
     const config = categoryConfig[category] || { label: category, class: 'bg-gray-100 text-gray-800' };
     return (
@@ -200,12 +200,12 @@ export default function EventDetailPage() {
     if (user?.role !== 'VOLUNTEER') return false;
     if (myRegistration) return false;
     if (event.status !== 'APPROVED') return false;
-    
+
     // Check if event has ended
     const now = new Date();
     const eventEndDate = new Date(event.endDate);
     if (eventEndDate < now) return false;
-    
+
     if (event.maxParticipants && (event._count?.registrations ?? 0) >= event.maxParticipants) return false;
     return true;
   };
@@ -277,20 +277,18 @@ export default function EventDetailPage() {
 
           {/* Registration Status - Hiển thị nếu đã đăng ký */}
           {myRegistration && !checkingRegistration && (
-            <div className={`mb-6 p-4 rounded-lg ${
-              myRegistration.status === 'REJECTED' 
-                ? 'bg-red-50 border border-red-200' 
+            <div className={`mb-6 p-4 rounded-lg ${myRegistration.status === 'REJECTED'
+                ? 'bg-red-50 border border-red-200'
                 : 'bg-blue-50 border border-blue-200'
-            }`}>
+              }`}>
               <div className="flex justify-between items-center">
                 <div className="flex-1">
-                  <p className={`font-semibold ${
-                    myRegistration.status === 'REJECTED' ? 'text-red-900' : 'text-blue-900'
-                  }`}>
+                  <p className={`font-semibold ${myRegistration.status === 'REJECTED' ? 'text-red-900' : 'text-blue-900'
+                    }`}>
                     Trạng thái đăng ký của bạn:
                   </p>
                   <div className="mt-2">{getStatusBadge(myRegistration.status)}</div>
-                  {myRegistration.status === 'REJECTED' }
+                  {myRegistration.status === 'REJECTED'}
                 </div>
                 {canCancelRegistration() && (
                   <button

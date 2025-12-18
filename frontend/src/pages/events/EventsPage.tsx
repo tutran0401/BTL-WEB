@@ -71,6 +71,20 @@ export default function EventsPage() {
     return categories.find(c => c.value === cat)?.label || cat;
   };
 
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      TREE_PLANTING: 'bg-green-100 text-green-700',
+      CLEANING: 'bg-blue-100 text-blue-700',
+      CHARITY: 'bg-pink-100 text-pink-700',
+      EDUCATION: 'bg-purple-100 text-purple-700',
+      HEALTHCARE: 'bg-red-100 text-red-700',
+      DIGITAL_LITERACY: 'bg-indigo-100 text-indigo-700',
+      COMMUNITY: 'bg-yellow-100 text-yellow-700',
+      OTHER: 'bg-gray-100 text-gray-700',
+    };
+    return colors[category] || colors.OTHER;
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -99,7 +113,7 @@ export default function EventsPage() {
                 />
               </div>
             </div>
-            
+
             <div className="md:w-48">
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -231,7 +245,7 @@ export default function EventsPage() {
                 {/* Event Info */}
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded-full">
+                    <span className={`px-3 py-1 ${getCategoryColor(event.category)} text-xs font-medium rounded-full`}>
                       {getCategoryLabel(event.category)}
                     </span>
                     {event.status === 'APPROVED' && new Date(event.endDate) >= new Date() && (
@@ -282,17 +296,16 @@ export default function EventsPage() {
               >
                 Trước
               </button>
-              
+
               <div className="flex gap-2">
                 {[...Array(totalPages)].map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setPage(i + 1)}
-                    className={`px-4 py-2 rounded-lg ${
-                      page === i + 1
-                        ? 'bg-primary-600 text-white'
-                        : 'border border-gray-300 hover:bg-gray-50'
-                    }`}
+                    className={`px-4 py-2 rounded-lg ${page === i + 1
+                      ? 'bg-primary-600 text-white'
+                      : 'border border-gray-300 hover:bg-gray-50'
+                      }`}
                   >
                     {i + 1}
                   </button>
