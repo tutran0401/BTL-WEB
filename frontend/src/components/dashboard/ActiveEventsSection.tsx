@@ -1,4 +1,4 @@
-import { MessageCircle, ArrowRight, Zap } from 'lucide-react';
+import { Play, ArrowRight, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ActiveEvent } from '../../services/dashboardService';
 import EventCard from './EventCard';
@@ -30,14 +30,14 @@ export default function ActiveEventsSection({ events, loading = false }: ActiveE
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <MessageCircle className="w-7 h-7 text-green-500" />
-                        Sự kiện đang sôi nổi
+                        <Play className="w-7 h-7 text-green-500" />
+                        Sự kiện đang diễn ra
                     </h2>
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-12 text-center border border-green-100">
-                    <MessageCircle className="w-16 h-16 text-green-300 mx-auto mb-4" />
-                    <p className="text-gray-600 text-lg">Chưa có hoạt động mới trong 24h qua</p>
-                    <p className="text-gray-500 text-sm mt-2">Hãy là người đầu tiên tham gia thảo luận!</p>
+                    <Calendar className="w-16 h-16 text-green-300 mx-auto mb-4" />
+                    <p className="text-gray-600 text-lg">Không có sự kiện nào đang diễn ra</p>
+                    <p className="text-gray-500 text-sm mt-2">Hãy khám phá các sự kiện sắp tới!</p>
                 </div>
             </div>
         );
@@ -49,12 +49,12 @@ export default function ActiveEventsSection({ events, loading = false }: ActiveE
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <MessageCircle className="w-7 h-7 text-green-500" />
-                        Sự kiện đang sôi nổi
+                        <Play className="w-7 h-7 text-green-500" />
+                        Sự kiện đang diễn ra
                     </h2>
                     <p className="text-gray-600 text-sm mt-1 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-yellow-500" />
-                        {events.length} sự kiện có hoạt động trao đổi mới trong 24h qua
+                        <Calendar className="w-4 h-4 text-green-500" />
+                        {events.length} sự kiện đang trong thời gian diễn ra
                     </p>
                 </div>
                 <Link

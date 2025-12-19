@@ -8,7 +8,7 @@ interface UseRealtimeEventsOptions {
 
 export function useRealtimeEvents(options: UseRealtimeEventsOptions = {}) {
   const { onEventUpdated, onEventApproved, isConnected } = useSocket();
-  
+
   // Use refs to store latest callbacks without triggering re-subscriptions
   const eventUpdatedRef = useRef(options.onEventUpdated);
   const eventApprovedRef = useRef(options.onEventApproved);
@@ -50,7 +50,7 @@ interface UseRealtimeRegistrationsOptions {
 
 export function useRealtimeRegistrations(options: UseRealtimeRegistrationsOptions = {}) {
   const { onRegistrationUpdated, isConnected } = useSocket();
-  
+
   const registrationUpdatedRef = useRef(options.onRegistrationUpdated);
 
   useEffect(() => {
@@ -84,7 +84,7 @@ interface UseRealtimeNotificationsOptions {
 
 export function useRealtimeNotifications(options: UseRealtimeNotificationsOptions = {}) {
   const { onUserNotification, isConnected } = useSocket();
-  
+
   const notificationRef = useRef(options.onNotification);
 
   useEffect(() => {
@@ -110,6 +110,8 @@ export function useRealtimeNotifications(options: UseRealtimeNotificationsOption
 interface UseRealtimeUpdatesOptions {
   onEventUpdated?: (data: any) => void;
   onEventApproved?: (data: any) => void;
+  onEventDeleted?: (data: any) => void;
+  onEventRejected?: (data: any) => void;
   onRegistrationUpdated?: (data: any) => void;
   onNotification?: (data: any) => void;
 }
@@ -118,6 +120,8 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
   const {
     onEventUpdated,
     onEventApproved,
+    onEventDeleted,
+    onEventRejected,
     onRegistrationUpdated,
     onUserNotification,
     isConnected,
@@ -126,12 +130,16 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
   // Use refs to store latest callbacks without triggering re-subscriptions
   const eventUpdatedRef = useRef(options.onEventUpdated);
   const eventApprovedRef = useRef(options.onEventApproved);
+  const eventDeletedRef = useRef(options.onEventDeleted);
+  const eventRejectedRef = useRef(options.onEventRejected);
   const registrationUpdatedRef = useRef(options.onRegistrationUpdated);
   const notificationRef = useRef(options.onNotification);
 
   useEffect(() => {
     eventUpdatedRef.current = options.onEventUpdated;
     eventApprovedRef.current = options.onEventApproved;
+    eventDeletedRef.current = options.onEventDeleted;
+    eventRejectedRef.current = options.onEventRejected;
     registrationUpdatedRef.current = options.onRegistrationUpdated;
     notificationRef.current = options.onNotification;
   });
@@ -152,6 +160,16 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
 
     if (eventApprovedRef.current) {
       const unsubscribe = onEventApproved((data: any) => eventApprovedRef.current?.(data));
+      unsubscribers.push(unsubscribe);
+    }
+
+    if (eventDeletedRef.current) {
+      const unsubscribe = onEventDeleted((data: any) => eventDeletedRef.current?.(data));
+      unsubscribers.push(unsubscribe);
+    }
+
+    if (eventRejectedRef.current) {
+      const unsubscribe = onEventRejected((data: any) => eventRejectedRef.current?.(data));
       unsubscribers.push(unsubscribe);
     }
 
@@ -176,6 +194,8 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
     isConnected,
     onEventUpdated,
     onEventApproved,
+    onEventDeleted,
+    onEventRejected,
     onRegistrationUpdated,
     onUserNotification,
   ]);

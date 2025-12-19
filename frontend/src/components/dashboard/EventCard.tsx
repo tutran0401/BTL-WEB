@@ -3,8 +3,6 @@ import { Calendar, MapPin, Users, MessageCircle, TrendingUp, Clock } from 'lucid
 import { DashboardEvent, ActiveEvent, TrendingEvent } from '../../services/dashboardService';
 import { Card } from '../common';
 import { getImageUrl } from '../../lib/api';
-import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 interface EventCardProps {
     event: DashboardEvent | ActiveEvent | TrendingEvent;
@@ -62,18 +60,15 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
         }
 
         if (variant === 'active') {
-            const activeEvent = event as ActiveEvent;
-            const hasNewActivity = activeEvent.discussionStats.newPosts > 0 || activeEvent.discussionStats.newComments > 0;
-            if (hasNewActivity) {
-                return (
-                    <div className="absolute top-3 right-3 z-10">
-                        <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-semibold shadow-lg">
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>Đang sôi nổi</span>
-                        </div>
+            // For active (ongoing) events, always show the badge
+            return (
+                <div className="absolute top-3 right-3 z-10">
+                    <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-semibold shadow-lg">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Đang diễn ra</span>
                     </div>
-                );
-            }
+                </div>
+            );
         }
 
         if (variant === 'new') {
@@ -110,39 +105,8 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
     };
 
     const renderDiscussionStats = () => {
-        if (variant === 'active') {
-            const activeEvent = event as ActiveEvent;
-            const { newPosts, newComments, lastActivityAt } = activeEvent.discussionStats;
-
-            if (newPosts > 0 || newComments > 0) {
-                return (
-                    <div className="space-y-2 pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-3 text-sm">
-                            {newPosts > 0 && (
-                                <div className="flex items-center gap-1.5 text-green-600">
-                                    <MessageCircle className="w-4 h-4" />
-                                    <span className="font-medium">{newPosts} bài mới</span>
-                                </div>
-                            )}
-                            {newComments > 0 && (
-                                <div className="flex items-center gap-1.5 text-blue-600">
-                                    <MessageCircle className="w-4 h-4 fill-current" />
-                                    <span className="font-medium">{newComments} bình luận</span>
-                                </div>
-                            )}
-                        </div>
-                        {lastActivityAt && (
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                <Clock className="w-3.5 h-3.5" />
-                                <span>
-                                    Cập nhật {formatDistanceToNow(new Date(lastActivityAt), { locale: vi, addSuffix: true })}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                );
-            }
-        }
+        // Discussion stats removed for active (ongoing) events
+        // Active events now only show basic info
         return null;
     };
 

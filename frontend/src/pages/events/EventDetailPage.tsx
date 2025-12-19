@@ -67,6 +67,61 @@ export default function EventDetailPage() {
       }
     },
 
+    onEventUpdated: (data) => {
+      console.log('🔄 Event updated in EventDetail:', data);
+
+      // If this is the current event, update it
+      if (data.eventId === id || data.event?.id === id) {
+        const updatedEvent = data.event;
+
+        // Check if event was rejected or cancelled
+        if (updatedEvent && (updatedEvent.status === 'REJECTED' || updatedEvent.status === 'CANCELLED')) {
+          toast.error(
+            updatedEvent.status === 'REJECTED'
+              ? '⚠️ Sự kiện này đã bị từ chối bởi Admin'
+              : '⚠️ Sự kiện này đã bị hủy',
+            { duration: 5000 }
+          );
+
+          // Redirect after 2 seconds
+          setTimeout(() => {
+            navigate('/events');
+          }, 2000);
+        } else {
+          // Regular update - reload event details
+          loadEventDetail();
+        }
+      }
+    },
+
+    onEventDeleted: (data) => {
+      console.log('🗑️ Event deleted in EventDetail:', data);
+
+      // If this is the current event, redirect
+      if (data.eventId === id) {
+        toast.error('⚠️ Sự kiện này đã bị xóa', { duration: 5000 });
+
+        // Redirect after 2 seconds
+        setTimeout(() => {
+          navigate('/events');
+        }, 2000);
+      }
+    },
+
+    onEventRejected: (data) => {
+      console.log('❌ Event rejected in EventDetail:', data);
+
+      // If this is the current event, redirect
+      if (data.eventId === id) {
+        toast.error('⚠️ Sự kiện này đã bị từ chối bởi Admin', { duration: 5000 });
+
+        // Redirect after 2 seconds
+        setTimeout(() => {
+          navigate('/events');
+        }, 2000);
+      }
+    },
+
     onNotification: (data) => {
       console.log('🔔 Notification in EventDetail:', data);
       // Handle notifications if needed
@@ -195,21 +250,6 @@ export default function EventDetailPage() {
     );
   };
 
-  const canRegister = () => {
-    if (!isAuthenticated || !event) return false;
-    if (user?.role !== 'VOLUNTEER') return false;
-    if (myRegistration) return false;
-    if (event.status !== 'APPROVED') return false;
-
-    // Check if event has ended
-    const now = new Date();
-    const eventEndDate = new Date(event.endDate);
-    if (eventEndDate < now) return false;
-
-    if (event.maxParticipants && (event._count?.registrations ?? 0) >= event.maxParticipants) return false;
-    return true;
-  };
-
   const canCancelRegistration = () => {
     if (!myRegistration) return false;
     // Chỉ cho phép hủy đăng ký nếu đang PENDING hoặc APPROVED
@@ -271,6 +311,21 @@ export default function EventDetailPage() {
               <h1 className="text-4xl font-bold text-gray-900 mb-3">{event.title}</h1>
               <div className="flex gap-3">
                 {getCategoryBadge(event.category)}
+                {/* Ongoing Event Badge */}
+                {event.status === 'APPROVED' && (() => {
+                  const now = new Date();
+                  const startDate = new Date(event.startDate);
+                  const endDate = new Date(event.endDate);
+
+                  if (startDate <= now && endDate >= now) {
+                    return (
+                      <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 text-sm font-medium rounded-full">
+                        Sự kiện đang diễn ra
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </div>
@@ -278,8 +333,8 @@ export default function EventDetailPage() {
           {/* Registration Status - Hiển thị nếu đã đăng ký */}
           {myRegistration && !checkingRegistration && (
             <div className={`mb-6 p-4 rounded-lg ${myRegistration.status === 'REJECTED'
-                ? 'bg-red-50 border border-red-200'
-                : 'bg-blue-50 border border-blue-200'
+              ? 'bg-red-50 border border-red-200'
+              : 'bg-blue-50 border border-blue-200'
               }`}>
               <div className="flex justify-between items-center">
                 <div className="flex-1">
@@ -349,42 +404,72 @@ export default function EventDetailPage() {
 
           {/* Action Buttons */}
           <div className="flex gap-4 pt-6 border-t">
-            {canRegister() && (
-              <button
-                onClick={handleRegister}
-                disabled={registering}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg transition-colors"
-              >
-                {registering ? 'Đang đăng ký...' : '✓ Đăng ký tham gia'}
-              </button>
-            )}
+            {(() => {
+              // If user already registered, show cancel button in registration status section
+              if (myRegistration) return null;
 
-            {!isAuthenticated && event.status === 'APPROVED' && (
-              <button
-                onClick={() => navigate('/login', { state: { from: `/events/${id}` } })}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-lg transition-colors"
-              >
-                Đăng nhập để đăng ký
-              </button>
-            )}
+              const now = new Date();
+              const eventStartDate = new Date(event.startDate);
+              const eventEndDate = new Date(event.endDate);
+              const isNotStarted = eventStartDate > now;
+              const isOngoing = eventStartDate <= now && eventEndDate >= now;
+              const isEnded = eventEndDate < now;
 
-            {event.status !== 'APPROVED' && (
-              <div className="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-lg text-center font-semibold">
-                Sự kiện chưa được phê duyệt
-              </div>
-            )}
+              // Only show actions for APPROVED events
+              if (event.status !== 'APPROVED') return null;
 
-            {event.maxParticipants && (event._count?.registrations ?? 0) >= event.maxParticipants && !myRegistration && (
-              <div className="flex-1 px-6 py-3 bg-red-100 text-red-600 rounded-lg text-center font-semibold">
-                Sự kiện đã đầy
-              </div>
-            )}
+              // Event has ended
+              if (isEnded) {
+                return (
+                  <div className="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-lg text-center font-semibold">
+                    Sự kiện đã kết thúc
+                  </div>
+                );
+              }
 
-            {new Date(event.endDate) < new Date() && !myRegistration && (
-              <div className="flex-1 px-6 py-3 bg-gray-100 text-gray-600 rounded-lg text-center font-semibold">
-                Sự kiện đã kết thúc
-              </div>
-            )}
+              // Event is ongoing - don't show anything
+              if (isOngoing) return null;
+
+              // Event hasn't started yet
+              if (isNotStarted) {
+                // Check if event is full
+                if (event.maxParticipants && (event._count?.registrations ?? 0) >= event.maxParticipants) {
+                  return (
+                    <div className="flex-1 px-6 py-3 bg-red-100 text-red-600 rounded-lg text-center font-semibold">
+                      Sự kiện đã đầy
+                    </div>
+                  );
+                }
+
+                // User not authenticated
+                if (!isAuthenticated) {
+                  return (
+                    <button
+                      onClick={() => navigate('/login', { state: { from: `/events/${id}` } })}
+                      className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-lg transition-colors"
+                    >
+                      Đăng nhập để đăng ký
+                    </button>
+                  );
+                }
+
+                // User is not a volunteer
+                if (user?.role !== 'VOLUNTEER') return null;
+
+                // Show register button
+                return (
+                  <button
+                    onClick={handleRegister}
+                    disabled={registering}
+                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg transition-colors"
+                  >
+                    {registering ? 'Đang đăng ký...' : '✓ Đăng ký tham gia'}
+                  </button>
+                );
+              }
+
+              return null;
+            })()}
           </div>
         </div>
       </div>

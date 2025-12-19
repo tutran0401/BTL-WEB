@@ -90,12 +90,12 @@ export default function TrendingEventsSection({ events, loading = false }: Trend
                     {/* 1st Place (Highlighted) - GOLD MEDAL */}
                     <div className="md:order-2 order-1">
                         <div className="relative">
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-10">
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-10">
                                 <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-yellow-200 via-yellow-300 to-yellow-400 text-white rounded-full shadow-xl border-4 border-white">
                                     <Award className="w-8 h-8" />
                                 </div>
                             </div>
-                            <div className="pt-10 transform md:scale-105">
+                            <div className="pt-8">
                                 <div className="ring-2 ring-yellow-300 rounded-lg shadow-lg overflow-hidden">
                                     <EventCard event={topThree[0]} variant="trending" />
                                 </div>

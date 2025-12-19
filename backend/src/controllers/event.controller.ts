@@ -73,7 +73,7 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
             _count: {
               select: {
                 registrations: {
-                  where: { status: 'APPROVED' }
+                  where: { status: { in: ['APPROVED', 'COMPLETED'] } }
                 },
                 posts: true
               }
@@ -85,7 +85,7 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
       ]);
 
       // Filter: (events của họ) HOẶC (events APPROVED)
-      const filteredEvents = allEvents.filter(event => 
+      const filteredEvents = allEvents.filter(event =>
         event.managerId === req.user?.userId || event.status === 'APPROVED'
       );
 
@@ -108,7 +108,7 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
             _count: {
               select: {
                 registrations: {
-                  where: { status: 'APPROVED' }
+                  where: { status: { in: ['APPROVED', 'COMPLETED'] } }
                 },
                 posts: true
               }
@@ -260,6 +260,12 @@ export const updateEvent = async (req: Request, res: Response): Promise<void> =>
       }
     });
 
+    // Emit global event for dashboard
+    io.emit('event:updated', {
+      eventId: id,
+      event: updatedEvent
+    });
+
     res.json({
       message: 'Event updated successfully',
       event: updatedEvent
@@ -294,6 +300,11 @@ export const deleteEvent = async (req: Request, res: Response): Promise<void> =>
 
     await prisma.event.delete({
       where: { id }
+    });
+
+    // Emit global event for dashboard
+    io.emit('event:deleted', {
+      eventId: id
     });
 
     res.json({ message: 'Event deleted successfully' });
@@ -416,6 +427,11 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
     io.emit(`user:${event.managerId}:event:updated`, {
       event,
       action: 'rejected'
+    });
+
+    // Emit global event for dashboard
+    io.emit('event:rejected', {
+      eventId: event.id
     });
 
     res.json({

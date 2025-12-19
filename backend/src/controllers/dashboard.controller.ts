@@ -6,9 +6,7 @@ import {
   getRecentActivityMetrics,
   calculateTrendingScore,
   generateGrowthIndicator,
-  getRecentDiscussionStats,
-  getActivityMetricsForMultipleEvents,
-  getDiscussionStatsForMultipleEvents
+  getActivityMetricsForMultipleEvents
 } from '../utils/dashboardHelpers';
 
 // GET /api/dashboard
@@ -70,20 +68,20 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
         }
       }),
 
-      // 2. ACTIVE EVENTS - Sự kiện có tin bài/trao đổi mới
+      // 2. ACTIVE EVENTS - Sự kiện đang diễn ra
       prisma.event.findMany({
         where: {
           ...baseWhere,
-          posts: {
-            some: {
-              createdAt: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-              }
-            }
+          // Events that are currently ongoing
+          startDate: {
+            lte: new Date() // Started already or starting now
+          },
+          endDate: {
+            gte: new Date() // Not ended yet
           }
         },
         take: 20, // Get more for prioritization
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { startDate: 'asc' }, // Soonest events first
         include: {
           manager: {
             select: {
@@ -97,13 +95,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
               registrations: {
                 where: { status: 'APPROVED' }
               },
-              posts: {
-                where: {
-                  createdAt: {
-                    gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                  }
-                }
-              }
+              posts: true
             }
           }
         }
@@ -172,26 +164,10 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     // Prioritize trending events by role
     const trendingEvents = prioritizeEventsByRole(topTrending, userId, userRole).slice(0, 5);
 
-    // OPTIMIZED: Add discussion stats using batch function
-    const activeEventIds = activeEvents.map(e => e.id);
-    const discussionStatsMap = await getDiscussionStatsForMultipleEvents(activeEventIds);
-
-    const activeEventsWithStats = activeEvents.map((event) => {
-      const discussionStats = discussionStatsMap.get(event.id) || {
-        newPosts: 0,
-        newComments: 0,
-        lastActivityAt: null
-      };
-      return {
-        ...event,
-        discussionStats
-      };
-    });
-
     // Response
     res.json({
       newEvents,
-      activeEvents: activeEventsWithStats,
+      activeEvents, // No need for discussion stats anymore
       trendingEvents,
       userStats
     });

@@ -150,8 +150,13 @@ export const createPost = async (req: Request, res: Response): Promise<void> => 
       }
     });
 
-    // Emit socket event
+    // Emit socket events
     io.to(`event-${eventId}`).emit('new-post', post);
+    // Also emit global event for dashboard
+    io.emit('post:created', {
+      eventId,
+      post
+    });
 
     res.status(201).json({
       message: 'Post created successfully',
@@ -189,8 +194,14 @@ export const deletePost = async (req: Request, res: Response): Promise<void> => 
       where: { id }
     });
 
-    // Emit socket event
+    // Emit socket events
     io.to(`event-${post.eventId}`).emit('post-deleted', { postId: id });
+    // Also emit global event for dashboard
+    io.emit('post:updated', {
+      eventId: post.eventId,
+      postId: id,
+      action: 'deleted'
+    });
 
     res.json({ message: 'Post deleted successfully' });
   } catch (error) {
@@ -231,6 +242,14 @@ export const toggleLike = async (req: Request, res: Response): Promise<void> => 
         where: { id: existingLike.id }
       });
 
+      // Emit socket events
+      io.to(`event-${post.eventId}`).emit('post-unliked', { postId: id });
+      // Also emit global event for dashboard
+      io.emit('like:removed', {
+        eventId: post.eventId,
+        postId: id
+      });
+
       res.json({ message: 'Post unliked', isLiked: false });
     } else {
       // Like
@@ -241,8 +260,13 @@ export const toggleLike = async (req: Request, res: Response): Promise<void> => 
         }
       });
 
-      // Emit socket event
+      // Emit socket events
       io.to(`event-${post.eventId}`).emit('post-liked', { postId: id });
+      // Also emit global event for dashboard
+      io.emit('like:created', {
+        eventId: post.eventId,
+        postId: id
+      });
 
       res.json({ message: 'Post liked', isLiked: true });
     }

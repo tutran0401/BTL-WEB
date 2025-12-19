@@ -53,10 +53,10 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
 
     if (existingRegistration) {
       // Không cho phép đăng ký lại nếu đã có registration (kể cả REJECTED)
-      res.status(400).json({ 
-        error: existingRegistration.status === 'REJECTED' 
+      res.status(400).json({
+        error: existingRegistration.status === 'REJECTED'
           ? 'Your registration was rejected. You cannot register again for this event.'
-          : 'Already registered for this event' 
+          : 'Already registered for this event'
       });
       return;
     } else {
@@ -105,6 +105,12 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       userName: (req.user as any)?.fullName || 'Unknown'
     });
 
+    // Emit global event for dashboard
+    io.emit('registration:created', {
+      eventId: event.id,
+      registrationId: registration.id
+    });
+
     res.status(201).json({
       message: 'Registration successful. Waiting for approval.',
       registration
@@ -143,6 +149,12 @@ export const cancelRegistration = async (req: Request, res: Response): Promise<v
     // XÓA HOÀN TOÀN registration thay vì chỉ đổi status
     await prisma.registration.delete({
       where: { id: registration.id }
+    });
+
+    // Emit global event for dashboard
+    io.emit('registration:cancelled', {
+      eventId,
+      registrationId: registration.id
     });
 
     res.json({ message: 'Registration cancelled successfully' });
@@ -298,6 +310,12 @@ export const approveRegistration = async (req: Request, res: Response): Promise<
       action: 'approved'
     });
 
+    // Emit global event for dashboard
+    io.emit('registration:approved', {
+      eventId: registration.eventId,
+      registrationId: registration.id
+    });
+
     res.json({
       message: 'Registration approved successfully',
       registration
@@ -367,6 +385,12 @@ export const rejectRegistration = async (req: Request, res: Response): Promise<v
     io.emit(`user:${registration.event.managerId}:registration:updated`, {
       registration,
       action: 'rejected'
+    });
+
+    // Emit global event for dashboard
+    io.emit('registration:rejected', {
+      eventId: registration.eventId,
+      registrationId: registration.id
     });
 
     res.json({
@@ -442,6 +466,12 @@ export const markAsCompleted = async (req: Request, res: Response): Promise<void
     io.emit(`user:${registration.event.managerId}:registration:updated`, {
       registration,
       action: 'completed'
+    });
+
+    // Emit global event for dashboard
+    io.emit('registration:completed', {
+      eventId: registration.eventId,
+      registrationId: registration.id
     });
 
     res.json({

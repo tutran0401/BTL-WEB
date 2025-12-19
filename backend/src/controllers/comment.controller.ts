@@ -86,8 +86,14 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
       }
     });
 
-    // Emit socket event
+    // Emit socket events
     io.to(`event-${post.event.id}`).emit('new-comment', {
+      postId,
+      comment
+    });
+    // Also emit global event for dashboard
+    io.emit('comment:created', {
+      eventId: post.event.id,
       postId,
       comment
     });
@@ -139,8 +145,14 @@ export const deleteComment = async (req: Request, res: Response): Promise<void> 
       where: { id }
     });
 
-    // Emit socket event
+    // Emit socket events
     io.to(`event-${comment.post.event.id}`).emit('comment-deleted', {
+      postId: comment.postId,
+      commentId: id
+    });
+    // Also emit global event for dashboard
+    io.emit('comment:deleted', {
+      eventId: comment.post.event.id,
       postId: comment.postId,
       commentId: id
     });
