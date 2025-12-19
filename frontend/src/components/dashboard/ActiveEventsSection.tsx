@@ -1,4 +1,4 @@
-import { Play, ArrowRight, Calendar } from 'lucide-react';
+import { Play, ArrowRight, Calendar, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ActiveEvent } from '../../services/dashboardService';
 import EventCard from './EventCard';
@@ -6,9 +6,18 @@ import EventCard from './EventCard';
 interface ActiveEventsSectionProps {
     events: ActiveEvent[];
     loading?: boolean;
+    hasMore?: boolean;
+    onLoadMore?: () => void;
+    loadingMore?: boolean;
 }
 
-export default function ActiveEventsSection({ events, loading = false }: ActiveEventsSectionProps) {
+export default function ActiveEventsSection({
+    events,
+    loading = false,
+    hasMore = false,
+    onLoadMore,
+    loadingMore = false
+}: ActiveEventsSectionProps) {
     if (loading) {
         return (
             <div className="space-y-4">
@@ -54,7 +63,7 @@ export default function ActiveEventsSection({ events, loading = false }: ActiveE
                     </h2>
                     <p className="text-gray-600 text-sm mt-1 flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-green-500" />
-                        {events.length} sự kiện đang trong thời gian diễn ra
+                        Các sự kiện đang trong thời gian diễn ra
                     </p>
                 </div>
                 <Link
@@ -72,6 +81,29 @@ export default function ActiveEventsSection({ events, loading = false }: ActiveE
                     <EventCard key={event.id} event={event} variant="active" />
                 ))}
             </div>
+
+            {/* Load More Button */}
+            {hasMore && (
+                <div className="flex justify-center pt-4">
+                    <button
+                        onClick={onLoadMore}
+                        disabled={loadingMore}
+                        className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        {loadingMore ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Đang tải...
+                            </>
+                        ) : (
+                            <>
+                                Xem thêm
+                                <ChevronDown className="w-4 h-4" />
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

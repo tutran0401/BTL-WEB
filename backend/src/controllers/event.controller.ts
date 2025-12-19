@@ -19,20 +19,25 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
     const where: any = {};
 
     // Logic phân quyền xem events
+    // KHÔNG hiển thị các sự kiện bị từ chối (REJECTED) cho tất cả user roles
     if (req.user?.role === 'ADMIN') {
-      // Admin có thể filter theo status bất kỳ
+      // Admin có thể filter theo status, nhưng loại bỏ REJECTED
       if (status) {
         where.status = status;
+      } else {
+        // Nếu không có filter status, admin sẽ thấy tất cả TRỪ REJECTED
+        where.status = { not: 'REJECTED' };
       }
-      // Nếu không có filter status, admin sẽ thấy tất cả
     } else if (req.user?.role === 'EVENT_MANAGER') {
-      // Event Manager có thể xem TẤT CẢ events của chính họ (PENDING, APPROVED, REJECTED)
+      // Event Manager có thể xem events của chính họ (PENDING, APPROVED - không có REJECTED)
       // và các events APPROVED của người khác
       if (status) {
         // Nếu có filter status, áp dụng filter đó
         where.status = status;
+      } else {
+        // Loại bỏ REJECTED
+        where.status = { not: 'REJECTED' };
       }
-      // Không filter status ở đây, sẽ filter sau khi query
     } else {
       // Volunteer hoặc không đăng nhập chỉ thấy events đã approve
       where.status = 'APPROVED';
@@ -58,7 +63,7 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
     let events, total;
 
     if (req.user?.role === 'EVENT_MANAGER' && !status) {
-      // Event Manager xem tất cả events của họ + events APPROVED của người khác
+      // Event Manager xem tất cả events của họ (TRỪ REJECTED) + events APPROVED của người khác
       const [allEvents, count] = await Promise.all([
         prisma.event.findMany({
           where,
@@ -84,9 +89,9 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
         prisma.event.count({ where })
       ]);
 
-      // Filter: (events của họ) HOẶC (events APPROVED)
+      // Filter: ((events của họ) VÀ (không phải REJECTED)) HOẶC (events APPROVED)
       const filteredEvents = allEvents.filter(event =>
-        event.managerId === req.user?.userId || event.status === 'APPROVED'
+        (event.managerId === req.user?.userId && event.status !== 'REJECTED') || event.status === 'APPROVED'
       );
 
       // Áp dụng pagination cho kết quả đã filter
@@ -141,6 +146,8 @@ export const getAllEvents = async (req: Request, res: Response): Promise<void> =
 export const getEventById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
 
     const event = await prisma.event.findUnique({
       where: { id },
@@ -166,6 +173,22 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
     if (!event) {
       res.status(404).json({ error: 'Event not found' });
       return;
+    }
+
+    // Không cho phép truy cập vào sự kiện REJECTED
+    // (Chỉ event manager của sự kiện đó hoặc admin mới có thể xem ở các trang quản lý)
+    if (event.status === 'REJECTED') {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    // Kiểm tra quyền xem sự kiện PENDING
+    if (event.status === 'PENDING') {
+      // Chỉ admin hoặc event manager của sự kiện đó mới có thể xem
+      if (userRole !== 'ADMIN' && event.managerId !== userId) {
+        res.status(404).json({ error: 'Event not found' });
+        return;
+      }
     }
 
     res.json(event);
@@ -246,15 +269,33 @@ export const updateEvent = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // Prepare update data
+    let updateData = { ...req.body };
+
+    // Nếu là Event Manager và sự kiện đang ở trạng thái REJECTED
+    // Khi update, tự động chuyển về PENDING để admin duyệt lại
+    if (userRole === 'EVENT_MANAGER' && event.status === 'REJECTED') {
+      updateData.status = 'PENDING';
+      console.log(`🔄 Event ${id} status changed from REJECTED to PENDING for re-approval`);
+    }
+
     const updatedEvent = await prisma.event.update({
       where: { id },
-      data: req.body,
+      data: updateData,
       include: {
         manager: {
           select: {
             id: true,
             fullName: true,
             email: true
+          }
+        },
+        _count: {
+          select: {
+            registrations: {
+              where: { status: { in: ['APPROVED', 'COMPLETED'] } }
+            },
+            posts: true
           }
         }
       }
@@ -266,10 +307,35 @@ export const updateEvent = async (req: Request, res: Response): Promise<void> =>
       event: updatedEvent
     });
 
-    res.json({
-      message: 'Event updated successfully',
-      event: updatedEvent
-    });
+    // Nếu chuyển từ REJECTED sang PENDING, gửi thông báo đặc biệt
+    if (event.status === 'REJECTED' && updatedEvent.status === 'PENDING') {
+      // Thông báo cho event manager
+      await sendPushNotification(
+        event.managerId,
+        'Sự kiện đã được gửi lại',
+        `Sự kiện "${updatedEvent.title}" đã được gửi lại để admin xem xét.`,
+        { type: 'event_resubmitted', eventId: updatedEvent.id }
+      );
+
+      // Emit socket event
+      io.emit(`user:${event.managerId}:notification`, {
+        id: updatedEvent.id,
+        title: 'Sự kiện đã được gửi lại',
+        message: `Sự kiện "${updatedEvent.title}" đã được gửi lại để admin xem xét.`,
+        type: 'event_resubmitted',
+        data: { eventId: updatedEvent.id }
+      });
+
+      res.json({
+        message: 'Sự kiện đã được cập nhật và gửi lại để admin duyệt',
+        event: updatedEvent
+      });
+    } else {
+      res.json({
+        message: 'Event updated successfully',
+        event: updatedEvent
+      });
+    }
   } catch (error) {
     console.error('Update event error:', error);
     res.status(500).json({ error: 'Internal server error' });

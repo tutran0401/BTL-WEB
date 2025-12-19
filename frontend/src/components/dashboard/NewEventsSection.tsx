@@ -1,4 +1,4 @@
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DashboardEvent } from '../../services/dashboardService';
 import EventCard from './EventCard';
@@ -6,9 +6,18 @@ import EventCard from './EventCard';
 interface NewEventsSectionProps {
     events: DashboardEvent[];
     loading?: boolean;
+    hasMore?: boolean;
+    onLoadMore?: () => void;
+    loadingMore?: boolean;
 }
 
-export default function NewEventsSection({ events, loading = false }: NewEventsSectionProps) {
+export default function NewEventsSection({
+    events,
+    loading = false,
+    hasMore = false,
+    onLoadMore,
+    loadingMore = false
+}: NewEventsSectionProps) {
     if (loading) {
         return (
             <div className="space-y-4">
@@ -53,7 +62,7 @@ export default function NewEventsSection({ events, loading = false }: NewEventsS
                         Sự kiện mới công bố
                     </h2>
                     <p className="text-gray-600 text-sm mt-1">
-                        Khám phá {events.length} sự kiện vừa được công bố gần đây
+                        Khám phá các sự kiện vừa được công bố gần đây
                     </p>
                 </div>
                 <Link
@@ -71,6 +80,29 @@ export default function NewEventsSection({ events, loading = false }: NewEventsS
                     <EventCard key={event.id} event={event} variant="new" />
                 ))}
             </div>
+
+            {/* Load More Button */}
+            {hasMore && (
+                <div className="flex justify-center pt-4">
+                    <button
+                        onClick={onLoadMore}
+                        disabled={loadingMore}
+                        className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        {loadingMore ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Đang tải...
+                            </>
+                        ) : (
+                            <>
+                                Xem thêm
+                                <ChevronDown className="w-4 h-4" />
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

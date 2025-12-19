@@ -1,4 +1,4 @@
-import { TrendingUp, ArrowRight, Flame, Award } from 'lucide-react';
+import { TrendingUp, ArrowRight, Flame, Award, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { TrendingEvent } from '../../services/dashboardService';
 import EventCard from './EventCard';
@@ -6,9 +6,18 @@ import EventCard from './EventCard';
 interface TrendingEventsSectionProps {
     events: TrendingEvent[];
     loading?: boolean;
+    hasMore?: boolean;
+    onLoadMore?: () => void;
+    loadingMore?: boolean;
 }
 
-export default function TrendingEventsSection({ events, loading = false }: TrendingEventsSectionProps) {
+export default function TrendingEventsSection({
+    events,
+    loading = false,
+    hasMore = false,
+    onLoadMore,
+    loadingMore = false
+}: TrendingEventsSectionProps) {
     if (loading) {
         return (
             <div className="space-y-4">
@@ -58,7 +67,7 @@ export default function TrendingEventsSection({ events, loading = false }: Trend
                     </h2>
                     <p className="text-gray-600 text-sm mt-1 flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-orange-500" />
-                        Top {events.length} sự kiện có mức độ tương tác tăng nhanh nhất
+                        Top các sự kiện có mức độ tương tác tăng nhanh nhất
                     </p>
                 </div>
                 <Link
@@ -138,6 +147,29 @@ export default function TrendingEventsSection({ events, loading = false }: Trend
                         <EventCard key={event.id} event={event} variant="trending" />
                     ))}
 
+                </div>
+            )}
+
+            {/* Load More Button */}
+            {hasMore && (
+                <div className="flex justify-center pt-4">
+                    <button
+                        onClick={onLoadMore}
+                        disabled={loadingMore}
+                        className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        {loadingMore ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Đang tải...
+                            </>
+                        ) : (
+                            <>
+                                Xem thêm
+                                <ChevronDown className="w-4 h-4" />
+                            </>
+                        )}
+                    </button>
                 </div>
             )}
         </div>

@@ -34,7 +34,7 @@ export default function ManageEventsPage() {
     onEventUpdated: (data) => {
       console.log('✅ Event updated:', data);
       const { event, action } = data;
-      
+
       // Update event in list
       setEvents((prevEvents) => {
         const index = prevEvents.findIndex(e => e.id === event.id);
@@ -198,13 +198,14 @@ export default function ManageEventsPage() {
 
     // Tạo CSV header
     const headers = ['STT', 'Họ tên', 'Email', 'Số điện thoại', 'Trạng thái', 'Hoàn thành', 'Ngày đăng ký'];
-    
-    // Tạo CSV rows
+
+    // Tạo CSV rows với format đúng cho số điện thoại
     const rows = registrations.map((reg, index) => [
       index + 1,
       reg.user?.fullName || '',
       reg.user?.email || '',
-      reg.user?.phone || '',
+      // Thêm tab (\t) trước số điện thoại để Excel hiểu đúng định dạng văn bản
+      reg.user?.phone ? `\t${reg.user.phone}` : '',
       getStatusText(reg.status),
       reg.isCompleted ? 'Có' : 'Không',
       new Date(reg.createdAt).toLocaleDateString('vi-VN')
@@ -219,7 +220,7 @@ export default function ManageEventsPage() {
     // Thêm BOM để Excel hiển thị đúng tiếng Việt
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    
+
     // Tạo link download
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -229,7 +230,7 @@ export default function ManageEventsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast.success('Đã export danh sách ra CSV');
   };
 
@@ -326,7 +327,7 @@ export default function ManageEventsPage() {
                     {getEventStatusBadge(event.status)}
                   </div>
                   <p className="text-gray-600 mb-4">{event.description}</p>
-                  
+
                   <div className="space-y-2 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
@@ -437,57 +438,57 @@ export default function ManageEventsPage() {
                 Export CSV
               </Button>
             </div>
-          <div className="space-y-3">
-            {registrations.map((reg) => (
-              <div key={reg.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{reg.user?.fullName}</h4>
-                  <p className="text-sm text-gray-500">{reg.user?.email}</p>
-                  {reg.user?.phone && (
-                    <p className="text-sm text-gray-500">{reg.user.phone}</p>
-                  )}
-                  <div className="mt-2">{getStatusBadge(reg.status)}</div>
-                </div>
+            <div className="space-y-3">
+              {registrations.map((reg) => (
+                <div key={reg.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">{reg.user?.fullName}</h4>
+                    <p className="text-sm text-gray-500">{reg.user?.email}</p>
+                    {reg.user?.phone && (
+                      <p className="text-sm text-gray-500">{reg.user.phone}</p>
+                    )}
+                    <div className="mt-2">{getStatusBadge(reg.status)}</div>
+                  </div>
 
-                <div className="flex gap-2">
-                  {reg.status === 'PENDING' && (
-                    <>
+                  <div className="flex gap-2">
+                    {reg.status === 'PENDING' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="success"
+                          onClick={() => handleApprove(reg.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <Check className="w-4 h-4" />
+                          Duyệt
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => handleReject(reg.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <X className="w-4 h-4" />
+                          Từ chối
+                        </Button>
+                      </>
+                    )}
+
+                    {reg.status === 'APPROVED' && !reg.isCompleted && (
                       <Button
                         size="sm"
-                        variant="success"
-                        onClick={() => handleApprove(reg.id)}
+                        variant="primary"
+                        onClick={() => handleMarkComplete(reg.id)}
                         className="flex items-center gap-1"
                       >
-                        <Check className="w-4 h-4" />
-                        Duyệt
+                        <CheckCircle className="w-4 h-4" />
+                        Hoàn thành
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleReject(reg.id)}
-                        className="flex items-center gap-1"
-                      >
-                        <X className="w-4 h-4" />
-                        Từ chối
-                      </Button>
-                    </>
-                  )}
-                  
-                  {reg.status === 'APPROVED' && !reg.isCompleted && (
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => handleMarkComplete(reg.id)}
-                      className="flex items-center gap-1"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Hoàn thành
-                    </Button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           </>
         )}
       </Modal>
@@ -502,7 +503,7 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
   onSuccess: () => void;
 }) {
   const { token } = useAuthStore(); // ✅ LẤY TOKEN TỪ ZUSTAND STORE
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -542,10 +543,10 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
         setUploading(false);
         return;
       }
-      
+
       console.log('🔑 Token from Zustand:', token?.substring(0, 20) + '...');
       console.log('📤 Uploading to:', `${import.meta.env.VITE_API_URL}/events/upload-image`);
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/events/upload-image`, {
         method: 'POST',
         headers: {
@@ -553,7 +554,7 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
         },
         body: uploadFormData
       });
-      
+
       console.log('📨 Response status:', response.status);
 
       if (!response.ok) {
@@ -704,13 +705,13 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Ảnh sự kiện (tùy chọn)
           </label>
-          
+
           {/* Image Preview */}
           {formData.imageUrl && (
             <div className="mb-3 relative">
-              <img 
-                src={formData.imageUrl} 
-                alt="Preview" 
+              <img
+                src={formData.imageUrl}
+                alt="Preview"
                 className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
@@ -799,7 +800,7 @@ function EditEventModal({ isOpen, onClose, onSuccess, event }: {
   event: Event;
 }) {
   const { token } = useAuthStore();
-  
+
   const [formData, setFormData] = useState({
     title: event.title,
     description: event.description,
@@ -851,7 +852,7 @@ function EditEventModal({ isOpen, onClose, onSuccess, event }: {
         setUploading(false);
         return;
       }
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/events/upload-image`, {
         method: 'POST',
         headers: {
@@ -1008,12 +1009,12 @@ function EditEventModal({ isOpen, onClose, onSuccess, event }: {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Ảnh sự kiện (tùy chọn)
           </label>
-          
+
           {formData.imageUrl && (
             <div className="mb-3 relative">
-              <img 
-                src={formData.imageUrl} 
-                alt="Preview" 
+              <img
+                src={formData.imageUrl}
+                alt="Preview"
                 className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;

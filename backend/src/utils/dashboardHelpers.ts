@@ -248,8 +248,10 @@ export function prioritizeEventsByRole(
  */
 export function getEventWhereClause(userId: string, role: string): any {
   if (role === 'ADMIN') {
-    // Admin can see all events
-    return {};
+    // Admin can see all events EXCEPT REJECTED
+    return {
+      status: { not: 'REJECTED' }
+    };
   }
 
   // For VOLUNTEER and EVENT_MANAGER, only show approved events

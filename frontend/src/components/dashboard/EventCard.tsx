@@ -64,7 +64,6 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
             return (
                 <div className="absolute top-3 right-3 z-10">
                     <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-semibold shadow-lg">
-                        <Clock className="w-3.5 h-3.5" />
                         <span>Đang diễn ra</span>
                     </div>
                 </div>
@@ -177,7 +176,7 @@ export default function EventCard({ event, variant = 'new', compact = false }: E
                         <div className="flex items-center gap-1.5 text-sm">
                             <Users className="w-4 h-4 text-primary-500" />
                             <span className="font-medium text-gray-900">{event._count.registrations}</span>
-                            <span className="text-gray-500">tham gia</span>
+                            <span className="text-gray-500">người tham gia</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-sm">
                             <MessageCircle className="w-4 h-4 text-blue-500" />

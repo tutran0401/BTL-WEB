@@ -81,6 +81,12 @@ export interface DashboardResponse {
   activeEvents: ActiveEvent[];
   trendingEvents: TrendingEvent[];
   userStats: UserStats | null;
+  // Pagination metadata
+  pagination?: {
+    newEvents: { offset: number; limit: number; hasMore: boolean };
+    activeEvents: { offset: number; limit: number; hasMore: boolean };
+    trendingEvents: { offset: number; limit: number; hasMore: boolean };
+  };
 }
 
 // Admin stats interface
@@ -125,9 +131,27 @@ export interface AdminStats {
 }
 
 export const dashboardService = {
-  // Get dashboard data (new structure)
-  async getDashboard(): Promise<DashboardResponse> {
-    const response = await api.get('/dashboard');
+  // Get dashboard data with optional pagination offsets
+  async getDashboard(offsets?: {
+    newEventsOffset?: number;
+    activeEventsOffset?: number;
+    trendingEventsOffset?: number;
+  }): Promise<DashboardResponse> {
+    const params = new URLSearchParams();
+    if (offsets?.newEventsOffset) {
+      params.append('newEventsOffset', String(offsets.newEventsOffset));
+    }
+    if (offsets?.activeEventsOffset) {
+      params.append('activeEventsOffset', String(offsets.activeEventsOffset));
+    }
+    if (offsets?.trendingEventsOffset) {
+      params.append('trendingEventsOffset', String(offsets.trendingEventsOffset));
+    }
+
+    const queryString = params.toString();
+    const url = `/dashboard${queryString ? '?' + queryString : ''}`;
+
+    const response = await api.get(url);
     return response.data;
   },
 

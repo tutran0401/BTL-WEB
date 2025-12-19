@@ -18,6 +18,18 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Pagination state
+  const [offsets, setOffsets] = useState({
+    newEvents: 0,
+    activeEvents: 0,
+    trendingEvents: 0
+  });
+  const [loadingMore, setLoadingMore] = useState({
+    newEvents: false,
+    activeEvents: false,
+    trendingEvents: false
+  });
+
   const fetchDashboard = useCallback(async (silent = false) => {
     try {
       if (!silent) {
@@ -27,6 +39,8 @@ export default function DashboardPage() {
       }
       const response = await dashboardService.getDashboard();
       setData(response);
+      // Reset offsets on full refresh
+      setOffsets({ newEvents: 0, activeEvents: 0, trendingEvents: 0 });
     } catch (error) {
       toast.error('Không thể tải dashboard');
       console.error(error);
@@ -38,6 +52,34 @@ export default function DashboardPage() {
       }
     }
   }, []);
+
+  // Load more handler
+  const handleLoadMore = useCallback(async (section: 'newEvents' | 'activeEvents' | 'trendingEvents') => {
+    if (!data) return;
+
+    setLoadingMore(prev => ({ ...prev, [section]: true }));
+
+    try {
+      const newOffset = offsets[section] + 6;
+      const response = await dashboardService.getDashboard({
+        [`${section}Offset`]: newOffset
+      });
+
+      // Append new events to existing ones
+      setData(prev => prev ? {
+        ...prev,
+        [section]: [...prev[section], ...response[section]],
+        pagination: response.pagination
+      } : null);
+
+      setOffsets(prev => ({ ...prev, [section]: newOffset }));
+    } catch (error) {
+      toast.error('Không thể tải thêm sự kiện');
+      console.error(error);
+    } finally {
+      setLoadingMore(prev => ({ ...prev, [section]: false }));
+    }
+  }, [data, offsets]);
 
   // Initial load
   useEffect(() => {
@@ -266,16 +308,34 @@ export default function DashboardPage() {
         </div>
 
         {/* Trending Events Section - NOW FIRST! */}
-        <TrendingEventsSection events={data.trendingEvents} loading={loading} />
+        <TrendingEventsSection
+          events={data.trendingEvents}
+          loading={loading}
+          hasMore={data.pagination?.trendingEvents.hasMore}
+          onLoadMore={() => handleLoadMore('trendingEvents')}
+          loadingMore={loadingMore.trendingEvents}
+        />
 
         {/* New Events Section */}
-        <NewEventsSection events={data.newEvents} loading={loading} />
+        <NewEventsSection
+          events={data.newEvents}
+          loading={loading}
+          hasMore={data.pagination?.newEvents.hasMore}
+          onLoadMore={() => handleLoadMore('newEvents')}
+          loadingMore={loadingMore.newEvents}
+        />
 
         {/* Divider */}
         <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
 
         {/* Active Events Section */}
-        <ActiveEventsSection events={data.activeEvents} loading={loading} />
+        <ActiveEventsSection
+          events={data.activeEvents}
+          loading={loading}
+          hasMore={data.pagination?.activeEvents.hasMore}
+          onLoadMore={() => handleLoadMore('activeEvents')}
+          loadingMore={loadingMore.activeEvents}
+        />
       </div>
     </div>
   );

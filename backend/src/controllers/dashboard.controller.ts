@@ -9,6 +9,18 @@ import {
   getActivityMetricsForMultipleEvents
 } from '../utils/dashboardHelpers';
 
+// Configuration constants for dashboard limits
+const QUERY_LIMITS = {
+  NEW_EVENTS: 50,        // Fetch pool (was 20)
+  ACTIVE_EVENTS: 30,     // Fetch pool (was 20)
+  TRENDING_POOL: 100     // Fetch pool (was 50) - for scoring
+};
+
+const DISPLAY_LIMITS = {
+  INITIAL: 6,            // Initial display (was 5)
+  LOAD_MORE: 6           // Per load more request
+};
+
 // GET /api/dashboard
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -19,6 +31,20 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
+    // Pagination params from query string
+    const {
+      newEventsOffset = 0,
+      activeEventsOffset = 0,
+      trendingEventsOffset = 0
+    } = req.query;
+
+    // Parse to numbers
+    const offsets = {
+      newEvents: parseInt(String(newEventsOffset), 10) || 0,
+      activeEvents: parseInt(String(activeEventsOffset), 10) || 0,
+      trendingEvents: parseInt(String(trendingEventsOffset), 10) || 0
+    };
 
     // Build base where clause based on role
     const baseWhere = getEventWhereClause(userId, userRole);
@@ -47,7 +73,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
           }
         },
-        take: 20, // Get more for prioritization
+        take: QUERY_LIMITS.NEW_EVENTS, // Increased from 20 to 50
         orderBy: { createdAt: 'desc' },
         include: {
           manager: {
@@ -80,7 +106,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
             gte: new Date() // Not ended yet
           }
         },
-        take: 20, // Get more for prioritization
+        take: QUERY_LIMITS.ACTIVE_EVENTS, // Increased from 20 to 30
         orderBy: { startDate: 'asc' }, // Soonest events first
         include: {
           manager: {
@@ -104,7 +130,8 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       // 3. TRENDING CANDIDATES - Get all approved events for trending calculation
       prisma.event.findMany({
         where: baseWhere,
-        take: 50, // Get larger pool for trending calculation
+        take: QUERY_LIMITS.TRENDING_POOL, // Increased from 50 to 100
+        orderBy: { createdAt: 'desc' }, // FIX: Added orderBy for deterministic results
         include: {
           manager: {
             select: {
@@ -128,9 +155,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       getUserStats(userId, userRole)
     ]);
 
-    // PRIORITIZE by role
-    const newEvents = prioritizeEventsByRole(allNewEvents, userId, userRole).slice(0, 5);
-    const activeEvents = prioritizeEventsByRole(allActiveEvents, userId, userRole).slice(0, 5);
+    // PRIORITIZE by role (get full prioritized lists)
+    const newEventsPrioritized = prioritizeEventsByRole(allNewEvents, userId, userRole);
+    const activeEventsPrioritized = prioritizeEventsByRole(allActiveEvents, userId, userRole);
 
     // OPTIMIZED: Calculate trending scores using batch function
     const trendingEventIds = allTrendingCandidates.map(e => e.id);
@@ -155,21 +182,52 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       };
     });
 
-    // Sort by trending score and take top 20 for prioritization
+    // Sort by trending score and filter
     const topTrending = trendingWithScores
       .filter(e => e.trendingScore > 0) // Only events with activity
-      .sort((a, b) => b.trendingScore - a.trendingScore)
-      .slice(0, 20);
+      .sort((a, b) => b.trendingScore - a.trendingScore);
 
     // Prioritize trending events by role
-    const trendingEvents = prioritizeEventsByRole(topTrending, userId, userRole).slice(0, 5);
+    const trendingPrioritized = prioritizeEventsByRole(topTrending, userId, userRole);
 
-    // Response
+    // Paginate with offsets - slice based on offset + limit
+    const newEvents = newEventsPrioritized.slice(
+      offsets.newEvents,
+      offsets.newEvents + DISPLAY_LIMITS.LOAD_MORE
+    );
+    const activeEvents = activeEventsPrioritized.slice(
+      offsets.activeEvents,
+      offsets.activeEvents + DISPLAY_LIMITS.LOAD_MORE
+    );
+    const trendingEvents = trendingPrioritized.slice(
+      offsets.trendingEvents,
+      offsets.trendingEvents + DISPLAY_LIMITS.LOAD_MORE
+    );
+
+    // Response with pagination metadata
     res.json({
       newEvents,
-      activeEvents, // No need for discussion stats anymore
+      activeEvents,
       trendingEvents,
-      userStats
+      userStats,
+      // Pagination metadata
+      pagination: {
+        newEvents: {
+          offset: offsets.newEvents,
+          limit: DISPLAY_LIMITS.LOAD_MORE,
+          hasMore: newEventsPrioritized.length > offsets.newEvents + DISPLAY_LIMITS.LOAD_MORE
+        },
+        activeEvents: {
+          offset: offsets.activeEvents,
+          limit: DISPLAY_LIMITS.LOAD_MORE,
+          hasMore: activeEventsPrioritized.length > offsets.activeEvents + DISPLAY_LIMITS.LOAD_MORE
+        },
+        trendingEvents: {
+          offset: offsets.trendingEvents,
+          limit: DISPLAY_LIMITS.LOAD_MORE,
+          hasMore: trendingPrioritized.length > offsets.trendingEvents + DISPLAY_LIMITS.LOAD_MORE
+        }
+      }
     });
   } catch (error) {
     console.error('Get dashboard error:', error);
@@ -431,7 +489,8 @@ export const exportUsers = async (req: Request, res: Response, next: NextFunctio
           u.id,
           u.email,
           `"${u.fullName.replace(/"/g, '""')}"`,
-          u.phone ? `"'${u.phone}"` : '""',
+          // Sử dụng tab (\t) để Excel hiểu đây là văn bản và giữ số 0 đầu
+          u.phone ? `"\t${u.phone}"` : '""',
           u.role,
           u.accountStatus,
           formatDate(u.createdAt),
