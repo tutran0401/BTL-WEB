@@ -2,7 +2,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Heart, Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useState } from 'react';
-import NotificationButton from './NotificationButton';
 import NotificationDropdown from './NotificationDropdown';
 
 export default function Navbar() {
@@ -80,9 +79,6 @@ return (
               )}
 
               <NotificationDropdown />
-              
-              {/* Notification Bell Button */}
-              <NotificationButton />
 
               <div className="relative group">
                 <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition">
