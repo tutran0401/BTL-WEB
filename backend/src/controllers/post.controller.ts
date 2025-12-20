@@ -150,6 +150,27 @@ export const createPost = async (req: Request, res: Response): Promise<void> => 
       }
     });
 
+    // Thông báo cho Event Manager (nếu không phải chính manager post)
+    if (event.managerId !== userId) {
+      const { sendPushNotification } = await import('./notification.controller');
+      await sendPushNotification(
+        event.managerId,
+        'Bài viết mới',
+        `${(req.user as any)?.fullName || 'Một người dùng'} đã đăng bài viết mới trên sự kiện "${event.title}"`,
+        { type: 'NEW_POST', eventId: event.id, postId: post.id }
+      );
+
+      io.emit(`user:${event.managerId}:notification`, {
+        id: post.id,
+        title: 'Bài viết mới',
+        message: `${(req.user as any)?.fullName || 'Một người dùng'} đã đăng bài viết mới trên sự kiện "${event.title}"`,
+        type: 'NEW_POST',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        data: { eventId: event.id, postId: post.id }
+      });
+    }
+
     // Emit socket events
     io.to(`event-${eventId}`).emit('new-post', post);
     // Also emit global event for dashboard
@@ -218,7 +239,21 @@ export const toggleLike = async (req: Request, res: Response): Promise<void> => 
 
     // Check if post exists
     const post = await prisma.post.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        author: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        },
+        event: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      }
     });
 
     if (!post) {
@@ -243,10 +278,10 @@ export const toggleLike = async (req: Request, res: Response): Promise<void> => 
       });
 
       // Emit socket events
-      io.to(`event-${post.eventId}`).emit('post-unliked', { postId: id });
+      io.to(`event-${post.event.id}`).emit('post-unliked', { postId: id });
       // Also emit global event for dashboard
       io.emit('like:removed', {
-        eventId: post.eventId,
+        eventId: post.event.id,
         postId: id
       });
 
@@ -260,11 +295,53 @@ export const toggleLike = async (req: Request, res: Response): Promise<void> => 
         }
       });
 
+      // Thông báo cho Post Author (nếu không phải chính author like)
+      // Debouncing: Chỉ thông báo nếu đây là like đầu tiên hoặc đã qua 5 phút từ notification cuối
+      if (post.authorId !== userId) {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+        // Kiểm tra xem đã có notification like trong 5 phút gần đây chưa
+        const recentLikeNotification = await prisma.notification.findFirst({
+          where: {
+            userId: post.authorId,
+            type: 'NEW_LIKE',
+            data: {
+              path: ['postId'],
+              equals: id
+            },
+            createdAt: {
+              gte: fiveMinutesAgo
+            }
+          }
+        });
+
+        // Chỉ gửi notification nếu chưa có notification like gần đây
+        if (!recentLikeNotification) {
+          const { sendPushNotification } = await import('./notification.controller');
+          await sendPushNotification(
+            post.authorId,
+            'Lượt thích mới',
+            `${(req.user as any)?.fullName || 'Một người dùng'} đã thích bài viết của bạn`,
+            { type: 'NEW_LIKE', eventId: post.event.id, postId: id }
+          );
+
+          io.emit(`user:${post.authorId}:notification`, {
+            id: `like-${id}-${Date.now()}`,
+            title: 'Lượt thích mới',
+            message: `${(req.user as any)?.fullName || 'Một người dùng'} đã thích bài viết của bạn`,
+            type: 'NEW_LIKE',
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            data: { eventId: post.event.id, postId: id }
+          });
+        }
+      }
+
       // Emit socket events
-      io.to(`event-${post.eventId}`).emit('post-liked', { postId: id });
+      io.to(`event-${post.event.id}`).emit('post-liked', { postId: id });
       // Also emit global event for dashboard
       io.emit('like:created', {
-        eventId: post.eventId,
+        eventId: post.event.id,
         postId: id
       });
 

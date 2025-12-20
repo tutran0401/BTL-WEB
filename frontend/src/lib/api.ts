@@ -41,6 +41,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response) {
       const { status, data } = error.response;
+      const requestUrl = error.config?.url || '';
 
       switch (status) {
         case 401:
@@ -53,7 +54,10 @@ api.interceptors.response.use(
           toast.error('Bạn không có quyền truy cập.');
           break;
         case 404:
-          toast.error('Không tìm thấy dữ liệu.');
+          // Skip automatic toast for event endpoints - let components handle it
+          if (!requestUrl.includes('/events/')) {
+            toast.error('Không tìm thấy dữ liệu.');
+          }
           break;
         case 500:
           toast.error('Lỗi server. Vui lòng thử lại sau.');

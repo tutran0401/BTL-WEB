@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Heart, MessageCircle, Trash2, Send } from 'lucide-react';
 import { postService, Post } from '../../services/postService';
 import { commentService, Comment } from '../../services/commentService';
@@ -10,16 +10,58 @@ import toast from 'react-hot-toast';
 
 interface PostListProps {
   eventId: string;
+  highlightPostId?: string; // For scrolling to specific post from notification
 }
 
-export default function PostList({ eventId }: PostListProps) {
+export default function PostList({ eventId, highlightPostId }: PostListProps) {
   const { user } = useAuthStore();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasScrolled = useRef(false); // Track if we've already scrolled
 
   useEffect(() => {
     fetchPosts();
+    // Reset scroll tracker when eventId changes
+    hasScrolled.current = false;
   }, [eventId]);
+
+  // Reset scroll tracker when highlightPostId changes
+  useEffect(() => {
+    if (highlightPostId) {
+      hasScrolled.current = false;
+    }
+  }, [highlightPostId]);
+
+  // Scroll to highlighted post - ONLY ONCE
+  useEffect(() => {
+    // Only scroll if we have highlightPostId, posts are loaded, and haven't scrolled yet
+    if (highlightPostId && posts.length > 0 && !hasScrolled.current) {
+      // Small delay to ensure posts are rendered
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`post-${highlightPostId}`);
+        if (element) {
+          // Mark as scrolled BEFORE scrolling to prevent re-triggers
+          hasScrolled.current = true;
+
+          // Scroll to post
+          element.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+
+          // Add highlight animation
+          element.classList.add('ring-4', 'ring-blue-400', 'ring-opacity-50', 'transition-all');
+
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            element.classList.remove('ring-4', 'ring-blue-400', 'ring-opacity-50');
+          }, 3000);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightPostId, posts]);
 
   const fetchPosts = async () => {
     try {
@@ -81,7 +123,7 @@ export default function PostList({ eventId }: PostListProps) {
       <h2 className="text-2xl font-bold text-gray-900">Bảng tin sự kiện</h2>
 
       {/* Create Post Box - Facebook Style */}
-      <CreatePostBox 
+      <CreatePostBox
         onSubmit={handleCreatePost}
         placeholder="Chia sẻ suy nghĩ của bạn về sự kiện..."
       />
@@ -102,6 +144,7 @@ export default function PostList({ eventId }: PostListProps) {
               onDelete={handleDeletePost}
               onCommentAdded={fetchPosts}
               currentUserId={user?.id}
+              isHighlighted={highlightPostId === post.id}
             />
           ))}
         </div>
@@ -117,9 +160,10 @@ interface PostItemProps {
   onDelete: (postId: string) => void;
   onCommentAdded: () => void;
   currentUserId?: string;
+  isHighlighted?: boolean; // For highlighting when scrolled to from notification
 }
 
-function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: PostItemProps) {
+function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId, isHighlighted }: PostItemProps) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -202,7 +246,10 @@ function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: Pos
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div
+      id={`post-${post.id}`}
+      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+    >
       {/* Post Header */}
       <div className="flex items-start justify-between p-4">
         <div className="flex gap-3">
@@ -275,11 +322,10 @@ function PostItem({ post, onLike, onDelete, onCommentAdded, currentUserId }: Pos
       <div className="flex items-center gap-1 px-2 py-1 border-t border-gray-100">
         <button
           onClick={() => onLike(post.id)}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${
-            post.isLiked 
-              ? 'text-red-600 hover:bg-red-50' 
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${post.isLiked
+            ? 'text-red-600 hover:bg-red-50'
+            : 'text-gray-600 hover:bg-gray-100'
+            }`}
         >
           <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
           <span className="text-sm font-medium">Thích</span>

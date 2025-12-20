@@ -11,6 +11,9 @@ export default function NotificationDropdown() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const { socket, isConnected } = useSocket();
@@ -36,6 +39,8 @@ export default function NotificationDropdown() {
             const data = await notificationService.getMyNotifications(1, 5);
             setNotifications(data.notifications);
             setUnreadCount(data.unreadCount);
+            setCurrentPage(1);
+            setHasMore(data.pagination.total > 5);
         } catch (error) {
             console.error('Error loading notifications:', error);
         }
@@ -48,11 +53,11 @@ export default function NotificationDropdown() {
         // Listen for notifications targeted to this user
         const handleNotification = (notification: any) => {
             console.log('🔔 Real-time notification received:', notification);
-            
+
             // Add to notifications list
             setNotifications(prev => [notification, ...prev.slice(0, 4)]);
             setUnreadCount(prev => prev + 1);
-            
+
             // Show toast
             toast.success(notification.message, {
                 duration: 5000,
@@ -79,8 +84,18 @@ export default function NotificationDropdown() {
                 n.id === id ? { ...n, isRead: true } : n
             ));
             setUnreadCount(prev => Math.max(0, prev - 1));
-        } catch (error) {
-            console.error('Error marking as read:', error);
+        } catch (error: any) {
+            // Silently handle 404 for real-time notifications that don't exist in DB
+            if (error?.response?.status === 404) {
+                console.warn('Notification not found in DB (real-time notification):', id);
+                // Still mark as read locally
+                setNotifications(notifications.map(n =>
+                    n.id === id ? { ...n, isRead: true } : n
+                ));
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            } else {
+                console.error('Error marking as read:', error);
+            }
         }
     };
 
@@ -98,34 +113,118 @@ export default function NotificationDropdown() {
         }
     };
 
+    const handleLoadMore = async () => {
+        if (loadingMore || !hasMore) return;
+
+        try {
+            setLoadingMore(true);
+            const nextPage = currentPage + 1;
+            const data = await notificationService.getMyNotifications(nextPage, 5);
+
+            // Filter out duplicates based on ID
+            const existingIds = new Set(notifications.map(n => n.id));
+            const newNotifications = data.notifications.filter((n: any) => !existingIds.has(n.id));
+
+            setNotifications(prev => [...prev, ...newNotifications]);
+            setCurrentPage(nextPage);
+
+            // Calculate hasMore based on total loaded vs total available
+            const totalLoaded = notifications.length + newNotifications.length;
+            setHasMore(totalLoaded < data.pagination.total);
+        } catch (error) {
+            console.error('Error loading more notifications:', error);
+            toast.error('Không thể tải thêm thông báo');
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.isRead) {
             handleMarkAsRead(notification.id);
         }
 
         // Navigate based on notification type
-        if (notification.type === 'new_registration' && user?.role === 'EVENT_MANAGER') {
-            // Nếu là thông báo đăng ký mới và user là manager, chuyển đến trang quản lý sự kiện
-            navigate('/manage-events');
-        } else if (notification.data?.eventId) {
-            navigate(`/events/${notification.data.eventId}`);
-        } else if (notification.data?.url) {
-            navigate(notification.data.url);
+        switch (notification.type) {
+            case 'NEW_REGISTRATION':
+                // Chuyển đến trang quản lý sự kiện
+                if (user?.role === 'EVENT_MANAGER') {
+                    navigate('/manage-events');
+                } else if (notification.data?.eventId) {
+                    navigate(`/events/${notification.data.eventId}`);
+                }
+                break;
+
+            case 'REGISTRATION_APPROVED':
+            case 'REGISTRATION_REJECTED':
+            case 'EVENT_COMPLETED':
+            case 'EVENT_APPROVED':
+                // Chuyển đến event detail
+                if (notification.data?.eventId) {
+                    navigate(`/events/${notification.data.eventId}`);
+                }
+                break;
+
+            case 'EVENT_REJECTED':
+            case 'EVENT_RESUBMITTED':
+                // Chuyển đến trang quản lý events
+                if (user?.role === 'EVENT_MANAGER') {
+                    navigate('/manage-events');
+                } else if (notification.data?.eventId) {
+                    navigate(`/events/${notification.data.eventId}`);
+                }
+                break;
+
+            case 'NEW_POST':
+            case 'NEW_COMMENT':
+            case 'NEW_LIKE':
+                // Chuyển đến event và scroll đến post cụ thể
+                if (notification.data?.eventId) {
+                    const postId = notification.data?.postId;
+                    if (postId) {
+                        navigate(`/events/${notification.data.eventId}?postId=${postId}`);
+                    } else {
+                        navigate(`/events/${notification.data.eventId}`);
+                    }
+                }
+                break;
+
+            default:
+                // Fallback navigation
+                if (notification.data?.eventId) {
+                    navigate(`/events/${notification.data.eventId}`);
+                } else if (notification.data?.url) {
+                    navigate(notification.data.url);
+                }
         }
 
         setIsOpen(false);
     };
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diff = now.getTime() - date.getTime();
 
-        if (diff < 60000) return 'Vừa xong';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
-        return date.toLocaleDateString('vi-VN');
+    const formatDate = (dateString: string) => {
+        try {
+            if (!dateString) return 'Vừa xong';
+
+            const date = new Date(dateString);
+
+            // Check if date is valid
+            if (isNaN(date.getTime())) return 'Vừa xong';
+
+            const now = new Date();
+            const diff = now.getTime() - date.getTime();
+
+            if (diff < 60000) return 'Vừa xong';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
+            return date.toLocaleDateString('vi-VN');
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return 'Vừa xong';
+        }
     };
+
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -192,11 +291,24 @@ export default function NotificationDropdown() {
                         )}
                     </div>
 
-                    <div className="p-3 border-t border-gray-100 bg-gray-50 text-center">
-                        <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                            Xem tất cả
-                        </button>
-                    </div>
+                    {hasMore && (
+                        <div className="p-3 border-t border-gray-100 bg-gray-50 text-center">
+                            <button
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loadingMore ? (
+                                    <span className="flex items-center justify-center space-x-2">
+                                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                        <span>Đang tải...</span>
+                                    </span>
+                                ) : (
+                                    'Xem thêm'
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

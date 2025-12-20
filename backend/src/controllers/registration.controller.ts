@@ -85,7 +85,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       event.managerId,
       'Đăng ký mới',
       `${(req.user as any)?.fullName || 'Một tình nguyện viên'} đã đăng ký tham gia sự kiện "${event.title}"`,
-      { type: 'new_registration', eventId: event.id, registrationId: registration.id }
+      { type: 'NEW_REGISTRATION', eventId: event.id, registrationId: registration.id }
     );
 
     // Emit socket event for real-time notification
@@ -93,7 +93,9 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       id: registration.id,
       title: 'Đăng ký mới',
       message: `${(req.user as any)?.fullName || 'Một tình nguyện viên'} đã đăng ký tham gia sự kiện "${event.title}"`,
-      type: 'new_registration',
+      type: 'NEW_REGISTRATION',
+      isRead: false,
+      createdAt: new Date().toISOString(),
       data: { eventId: event.id, registrationId: registration.id }
     });
 
@@ -280,7 +282,7 @@ export const approveRegistration = async (req: Request, res: Response): Promise<
       registration.userId,
       'Đăng ký được duyệt',
       `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã được chấp nhận.`,
-      { type: 'registration_approved', eventId: registration.event.id }
+      { type: 'REGISTRATION_APPROVED', eventId: registration.event.id }
     );
 
     // Emit socket event to volunteer for real-time notification
@@ -288,7 +290,9 @@ export const approveRegistration = async (req: Request, res: Response): Promise<
       id: registration.id,
       title: 'Đăng ký được duyệt',
       message: `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã được chấp nhận.`,
-      type: 'registration_approved',
+      type: 'REGISTRATION_APPROVED',
+      isRead: false,
+      createdAt: new Date().toISOString(),
       data: { eventId: registration.event.id, registrationId: registration.id }
     });
 
@@ -357,7 +361,7 @@ export const rejectRegistration = async (req: Request, res: Response): Promise<v
       registration.userId,
       'Đăng ký bị từ chối',
       `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã bị từ chối.`,
-      { type: 'registration_rejected', eventId: registration.event.id }
+      { type: 'REGISTRATION_REJECTED', eventId: registration.event.id }
     );
 
     // Emit socket event to volunteer for real-time notification
@@ -365,7 +369,9 @@ export const rejectRegistration = async (req: Request, res: Response): Promise<v
       id: registration.id,
       title: 'Đăng ký bị từ chối',
       message: `Đăng ký tham gia sự kiện "${registration.event.title}" của bạn đã bị từ chối.`,
-      type: 'registration_rejected',
+      type: 'REGISTRATION_REJECTED',
+      isRead: false,
+      createdAt: new Date().toISOString(),
       data: { eventId: registration.event.id, registrationId: registration.id }
     });
 
@@ -438,7 +444,7 @@ export const markAsCompleted = async (req: Request, res: Response): Promise<void
       registration.userId,
       'Hoàn thành sự kiện',
       `Chúc mừng! Bạn đã hoàn thành sự kiện "${registration.event.title}".`,
-      { type: 'event_completed', eventId: registration.event.id }
+      { type: 'EVENT_COMPLETED', eventId: registration.event.id }
     );
 
     // Emit socket event to volunteer for real-time notification
@@ -446,7 +452,9 @@ export const markAsCompleted = async (req: Request, res: Response): Promise<void
       id: registration.id,
       title: 'Hoàn thành sự kiện',
       message: `Chúc mừng! Bạn đã hoàn thành sự kiện "${registration.event.title}".`,
-      type: 'event_completed',
+      type: 'EVENT_COMPLETED',
+      isRead: false,
+      createdAt: new Date().toISOString(),
       data: { eventId: registration.event.id, registrationId: registration.id }
     });
 

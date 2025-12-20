@@ -56,9 +56,16 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
     const post = await prisma.post.findUnique({
       where: { id: postId },
       include: {
+        author: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        },
         event: {
           select: {
-            id: true
+            id: true,
+            title: true
           }
         }
       }
@@ -85,6 +92,27 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
         }
       }
     });
+
+    // Thông báo cho Post Author (nếu không phải chính author comment)
+    if (post.authorId !== userId) {
+      const { sendPushNotification } = await import('./notification.controller');
+      await sendPushNotification(
+        post.authorId,
+        'Bình luận mới',
+        `${(req.user as any)?.fullName || 'Một người dùng'} đã bình luận trên bài viết của bạn`,
+        { type: 'NEW_COMMENT', eventId: post.event.id, postId, commentId: comment.id }
+      );
+
+      io.emit(`user:${post.authorId}:notification`, {
+        id: comment.id,
+        title: 'Bình luận mới',
+        message: `${(req.user as any)?.fullName || 'Một người dùng'} đã bình luận trên bài viết của bạn`,
+        type: 'NEW_COMMENT',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        data: { eventId: post.event.id, postId, commentId: comment.id }
+      });
+    }
 
     // Emit socket events
     io.to(`event-${post.event.id}`).emit('new-comment', {

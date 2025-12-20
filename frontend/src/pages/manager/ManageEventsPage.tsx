@@ -28,6 +28,7 @@ export default function ManageEventsPage() {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+  const [pendingCounts, setPendingCounts] = useState<Record<string, number>>({});
 
   // Setup real-time updates for events and registrations
   useRealtimeUpdates({
@@ -48,7 +49,7 @@ export default function ManageEventsPage() {
 
       // Show toast notification
       if (action === 'approved') {
-        toast.success(`✅ Sự kiện "${event.title}" đã được duyệt!`, { duration: 5000 });
+        toast.success(`Sự kiện "${event.title}" đã được duyệt!`, { duration: 5000 });
       } else if (action === 'rejected') {
         toast.error(`❌ Sự kiện "${event.title}" đã bị từ chối!`, { duration: 5000 });
       }
@@ -60,6 +61,11 @@ export default function ManageEventsPage() {
 
       // Refresh events to update registration count
       fetchMyEvents();
+
+      // Update pending count for affected event
+      if (registration.eventId) {
+        loadPendingCount(registration.eventId);
+      }
 
       // If viewing registrations for this event, update them
       if (showRegistrationsModal && selectedEvent?.id === registration.eventId) {
@@ -77,7 +83,7 @@ export default function ManageEventsPage() {
       // Show toast notification
       const userName = registration.user?.fullName || 'Tình nguyện viên';
       if (action === 'approved') {
-        toast.success(`✅ Đã duyệt đăng ký của ${userName}`, { duration: 3000 });
+        toast.success(`Đã duyệt đăng ký của ${userName}`, { duration: 3000 });
       } else if (action === 'rejected') {
         toast(`❌ Đã từ chối đăng ký của ${userName}`, { duration: 3000 });
       } else if (action === 'completed') {
@@ -103,11 +109,27 @@ export default function ManageEventsPage() {
       // Filter events của mình (hoặc backend đã filter rồi)
       const myEvents = data.events.filter((e: Event) => e.manager?.id === user?.id);
       setEvents(myEvents);
+
+      // Load pending counts for all events
+      for (const event of myEvents) {
+        loadPendingCount(event.id);
+      }
     } catch (error) {
       toast.error('Không thể tải danh sách sự kiện');
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load pending registration count for an event
+  const loadPendingCount = async (eventId: string) => {
+    try {
+      const data = await registrationService.getEventRegistrations(eventId);
+      const pendingCount = data.registrations.filter((r: Registration) => r.status === 'PENDING').length;
+      setPendingCounts(prev => ({ ...prev, [eventId]: pendingCount }));
+    } catch (error) {
+      console.error('Error loading pending count:', error);
     }
   };
 
@@ -325,6 +347,11 @@ export default function ManageEventsPage() {
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-semibold text-gray-900">{event.title}</h3>
                     {getEventStatusBadge(event.status)}
+                    {pendingCounts[event.id] > 0 && (
+                      <span className="px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-full animate-pulse shadow-lg">
+                        {pendingCounts[event.id]} chờ duyệt
+                      </span>
+                    )}
                   </div>
                   <p className="text-gray-600 mb-4">{event.description}</p>
 
@@ -502,7 +529,7 @@ function CreateEventModal({ isOpen, onClose, onSuccess }: {
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const { token } = useAuthStore(); // ✅ LẤY TOKEN TỪ ZUSTAND STORE
+  const { token } = useAuthStore(); // LẤY TOKEN TỪ ZUSTAND STORE
 
   const [formData, setFormData] = useState({
     title: '',

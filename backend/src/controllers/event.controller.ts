@@ -176,10 +176,13 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
     }
 
     // Không cho phép truy cập vào sự kiện REJECTED
-    // (Chỉ event manager của sự kiện đó hoặc admin mới có thể xem ở các trang quản lý)
+    // (Chỉ event manager của sự kiện đó hoặc admin mới có thể xem)
     if (event.status === 'REJECTED') {
-      res.status(404).json({ error: 'Event not found' });
-      return;
+      // Cho phép manager của event hoặc admin xem
+      if (userRole !== 'ADMIN' && event.managerId !== userId) {
+        res.status(404).json({ error: 'Event not found' });
+        return;
+      }
     }
 
     // Kiểm tra quyền xem sự kiện PENDING
@@ -314,7 +317,7 @@ export const updateEvent = async (req: Request, res: Response): Promise<void> =>
         event.managerId,
         'Sự kiện đã được gửi lại',
         `Sự kiện "${updatedEvent.title}" đã được gửi lại để admin xem xét.`,
-        { type: 'event_resubmitted', eventId: updatedEvent.id }
+        { type: 'EVENT_RESUBMITTED', eventId: updatedEvent.id }
       );
 
       // Emit socket event
@@ -322,7 +325,9 @@ export const updateEvent = async (req: Request, res: Response): Promise<void> =>
         id: updatedEvent.id,
         title: 'Sự kiện đã được gửi lại',
         message: `Sự kiện "${updatedEvent.title}" đã được gửi lại để admin xem xét.`,
-        type: 'event_resubmitted',
+        type: 'EVENT_RESUBMITTED',
+        isRead: false,
+        createdAt: new Date().toISOString(),
         data: { eventId: updatedEvent.id }
       });
 
@@ -412,7 +417,7 @@ export const approveEvent = async (req: Request, res: Response): Promise<void> =
       event.managerId,
       'Sự kiện được duyệt',
       `Sự kiện "${event.title}" của bạn đã được phê duyệt và công khai.`,
-      { type: 'event_approved', eventId: event.id }
+      { type: 'EVENT_APPROVED', eventId: event.id }
     );
 
     // Emit socket event for real-time notification
@@ -420,7 +425,9 @@ export const approveEvent = async (req: Request, res: Response): Promise<void> =
       id: event.id,
       title: 'Sự kiện được duyệt',
       message: `Sự kiện "${event.title}" của bạn đã được phê duyệt và công khai.`,
-      type: 'event_approved',
+      type: 'EVENT_APPROVED',
+      isRead: false,
+      createdAt: new Date().toISOString(),
       data: { eventId: event.id }
     });
 
@@ -477,7 +484,7 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
       event.managerId,
       'Sự kiện bị từ chối',
       `Sự kiện "${event.title}" của bạn đã bị từ chối.`,
-      { type: 'event_rejected', eventId: event.id }
+      { type: 'EVENT_REJECTED', eventId: event.id }
     );
 
     // Emit socket event for real-time notification
@@ -485,7 +492,9 @@ export const rejectEvent = async (req: Request, res: Response): Promise<void> =>
       id: event.id,
       title: 'Sự kiện bị từ chối',
       message: `Sự kiện "${event.title}" của bạn đã bị từ chối.`,
-      type: 'event_rejected',
+      type: 'EVENT_REJECTED',
+      isRead: false,
+      createdAt: new Date().toISOString(),
       data: { eventId: event.id }
     });
 

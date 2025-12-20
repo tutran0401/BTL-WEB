@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { eventService, Event } from '../../services/eventService';
 import { registrationService, Registration } from '../../services/registrationService';
 import { useAuthStore } from '../../store/authStore';
@@ -12,6 +12,7 @@ import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuthStore();
   const { joinEvent, leaveEvent } = useSocket();
 
@@ -20,6 +21,9 @@ export default function EventDetailPage() {
   const [registering, setRegistering] = useState(false);
   const [myRegistration, setMyRegistration] = useState<Registration | null>(null);
   const [checkingRegistration, setCheckingRegistration] = useState(false);
+
+  // Get postId from URL query params for highlighting
+  const highlightPostId = searchParams.get('postId');
 
   // Join socket room for this event to receive real-time updates
   useEffect(() => {
@@ -138,13 +142,38 @@ export default function EventDetailPage() {
     }
   }, [id, isAuthenticated]);
 
+  // Debug: Log URL params when component mounts
+  useEffect(() => {
+    if (id) {
+      console.log('EventDetailPage mounted:', {
+        eventId: id,
+        highlightPostId,
+        userId: user?.id,
+        userRole: user?.role
+      });
+    }
+  }, []); // Only on mount
+
   const loadEventDetail = async () => {
     try {
       setLoading(true);
       const data = await eventService.getEventById(id!);
       setEvent(data);
-    } catch (error) {
-      toast.error('Không thể tải thông tin sự kiện');
+    } catch (error: any) {
+      console.error('Load event detail error:', error);
+
+      // Show specific error message
+      const status = error?.response?.status;
+      const message = error?.response?.data?.error;
+
+      if (status === 404) {
+        toast.error(message || 'Không tìm thấy sự kiện này. Sự kiện có thể đã bị xóa hoặc bạn không có quyền xem.');
+      } else if (status === 403) {
+        toast.error('Bạn không có quyền xem sự kiện này.');
+      } else {
+        toast.error(message || 'Không thể tải thông tin sự kiện');
+      }
+
       navigate('/events');
     } finally {
       setLoading(false);
@@ -477,7 +506,7 @@ export default function EventDetailPage() {
       {/* Social Features - Bảng tin sự kiện */}
       {event.status === 'APPROVED' && (
         <div className="mt-8">
-          <PostList eventId={event.id} />
+          <PostList eventId={event.id} highlightPostId={highlightPostId || undefined} />
         </div>
       )}
     </div>
