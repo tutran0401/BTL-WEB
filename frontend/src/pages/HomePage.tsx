@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Heart, Users, Calendar, Award } from 'lucide-react';
 
-export default function HomePage() { 
+export default function HomePage() {
   return (
     <div>
       {/* Hero Section */}
@@ -16,13 +16,13 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center fade-in">
               <Link
-                to="/events"
+                to="/dashboard"
                 className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
               >
                 Khám phá sự kiện
               </Link>
               <Link
-                to="/register"
+                to="/events"
                 className="bg-transparent border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition"
               >
                 Đăng ký ngay
@@ -96,7 +96,7 @@ export default function HomePage() {
             Đăng ký ngay hôm nay để khám phá và tham gia các hoạt động tình nguyện ý nghĩa.
           </p>
           <Link
-            to="/login"
+            to="/events"
             className="inline-block bg-primary-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-700 transition"
           >
             Bắt đầu ngay
