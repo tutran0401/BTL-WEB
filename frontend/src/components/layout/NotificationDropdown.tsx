@@ -1,31 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, BellOff, Loader2 } from 'lucide-react'; 
+import { Bell } from 'lucide-react';
 import { notificationService, Notification } from '../../services/notificationService';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuthStore } from '../../store/authStore';
-import { useNotifications } from '../../hooks/useNotifications'; 
 
 export default function NotificationDropdown() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
-    const [loading, setLoading] = useState(false); 
+    const [loading, setLoading] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const { socket, isConnected } = useSocket();
     const { user } = useAuthStore();
-
-    // Logic mới từ NotificationButton (Push Notification) 
-    const { 
-        isSupported, 
-        isSubscribed, 
-        permission, 
-        loading: pushLoading, 
-        subscribe, 
-        unsubscribe 
-    } = useNotifications();
 
     useEffect(() => {
         loadNotifications();
@@ -37,6 +26,7 @@ export default function NotificationDropdown() {
                 setIsOpen(false);
             }
         };
+
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
@@ -51,16 +41,31 @@ export default function NotificationDropdown() {
         }
     }, []);
 
-    // Socket listeners...
+    // Setup Socket.io real-time listeners
     useEffect(() => {
         if (!socket || !isConnected || !user) return;
+
+        // Listen for notifications targeted to this user
         const handleNotification = (notification: any) => {
+            console.log('🔔 Real-time notification received:', notification);
+            
+            // Add to notifications list
             setNotifications(prev => [notification, ...prev.slice(0, 4)]);
             setUnreadCount(prev => prev + 1);
-            toast.success(notification.message, { duration: 5000 });
+            
+            // Show toast
+            toast.success(notification.message, {
+                duration: 5000,
+            });
         };
+
+        // Listen to user-specific notification channel
         socket.on(`user:${user.id}:notification`, handleNotification);
+
+        // Also listen to general notification event
         socket.on('notification', handleNotification);
+
+        // Cleanup
         return () => {
             socket.off(`user:${user.id}:notification`, handleNotification);
             socket.off('notification', handleNotification);
@@ -97,36 +102,25 @@ export default function NotificationDropdown() {
         if (!notification.isRead) {
             handleMarkAsRead(notification.id);
         }
+
+        // Navigate based on notification type
         if (notification.type === 'new_registration' && user?.role === 'EVENT_MANAGER') {
+            // Nếu là thông báo đăng ký mới và user là manager, chuyển đến trang quản lý sự kiện
             navigate('/manage-events');
         } else if (notification.data?.eventId) {
             navigate(`/events/${notification.data.eventId}`);
         } else if (notification.data?.url) {
             navigate(notification.data.url);
         }
-        setIsOpen(false);
-    };
 
-    const handlePushToggle = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // Ngăn dropdown bị đóng khi bấm nút này
-        
-        if (isSubscribed) {
-            const success = await unsubscribe();
-            if (!success) toast.error('Không thể tắt thông báo');
-        } else {
-            if (permission === 'denied') {
-                toast.error('Bạn đã chặn thông báo. Vui lòng mở khóa trong cài đặt trình duyệt.');
-                return;
-            }
-            const success = await subscribe();
-            if (!success) toast.error('Không thể bật thông báo');
-        }
+        setIsOpen(false);
     };
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         const now = new Date();
         const diff = now.getTime() - date.getTime();
+
         if (diff < 60000) return 'Vừa xong';
         if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
@@ -135,7 +129,6 @@ export default function NotificationDropdown() {
 
     return (
         <div className="relative" ref={dropdownRef}>
-            {/* Nút chuông trên Navbar */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-700 hover:text-blue-600 transition-colors rounded-full hover:bg-gray-100"
@@ -148,42 +141,17 @@ export default function NotificationDropdown() {
                 )}
             </button>
 
-            {/* Dropdown Content */}
             {isOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50 border border-gray-100 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-gray-900">Thông báo</h3>
-                           
-                            {isSupported && (
-                                <button
-                                    onClick={handlePushToggle}
-                                    disabled={pushLoading}
-                                    title={isSubscribed ? 'Tắt thông báo trình duyệt' : 'Bật thông báo trình duyệt'}
-                                    className={`p-1.5 rounded-full transition-all ${
-                                        isSubscribed 
-                                            ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                                            : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    {pushLoading ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : isSubscribed ? (
-                                        <Bell className="w-3.5 h-3.5 fill-current" />
-                                    ) : (
-                                        <BellOff className="w-3.5 h-3.5" />
-                                    )}
-                                </button>
-                            )}
-                        </div>
-
+                        <h3 className="font-semibold text-gray-900">Thông báo</h3>
                         {unreadCount > 0 && (
                             <button
                                 onClick={handleMarkAllAsRead}
                                 disabled={loading}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap ml-2"
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                             >
-                                {loading ? 'Đang xử lý...' : 'Đánh dấu đã đọc'}
+                                Đánh dấu đã đọc
                             </button>
                         )}
                     </div>
@@ -199,7 +167,8 @@ export default function NotificationDropdown() {
                                     <div
                                         key={notification.id}
                                         onClick={() => handleNotificationClick(notification)}
-                                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${!notification.isRead ? 'bg-blue-50' : ''}`}
+                                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${!notification.isRead ? 'bg-blue-50' : ''
+                                            }`}
                                     >
                                         <div className="flex gap-3">
                                             <div className="flex-1">
